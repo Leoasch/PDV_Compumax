@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Pos.Api/Pos.Api.csproj" />
+  <Project Path="Pos.Client/Pos.Client.csproj" />
+  <Project Path="Pos.Domain/Pos.Domain.csproj" />
+  <Project Path="Pos.Infrastructure/Pos.Infrastructure.csproj" />
+  <Project Path="Pos.Shared/Pos.Shared.csproj" />
+</Solution>

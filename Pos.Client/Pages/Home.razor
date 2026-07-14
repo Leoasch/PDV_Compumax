@@ -1,0 +1,35 @@
+﻿@page "/"
+
+<PageTitle>Teste MudBlazor</PageTitle>
+
+<MudPaper Class="pa-6 ma-6">
+
+    <MudText Typo="Typo.h4">
+        MudBlazor funcionando!
+    </MudText>
+
+    <MudDivider Class="my-4"/>
+
+    <MudTextField T="string" Label="Nome" />
+
+    <MudNumericField T="decimal" Label="Preço" />
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               OnClick="Clicked">
+        Salvar
+    </MudButton>
+
+</MudPaper>
+
+@code {
+
+    [Inject]
+    ISnackbar Snackbar { get; set; } = default!;
+
+    void Clicked()
+    {
+        Snackbar.Add("Funcionou!", Severity.Success);
+    }
+
+}

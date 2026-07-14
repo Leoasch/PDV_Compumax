@@ -1,0 +1,47 @@
+# Artefatos de compilação do .NET
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Pp]ublish/
+[Aa]rtifacts/
+
+# IDEs e editores
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Pacotes e caches locais
+packages/
+.nuget/
+
+# Resultados de testes e cobertura
+TestResults/
+coverage/
+coverage*/
+*.coverage
+*.coveragexml
+
+# Banco SQLite local da API
+dados/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Configurações locais que podem conter dados sensíveis
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Arquivos temporários do sistema
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

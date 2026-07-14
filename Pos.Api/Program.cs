@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Pos.Infrastructure.Dados;
+using Pos.Infrastructure.Dados.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +21,8 @@ var app = builder.Build();
 using (var escopo = app.Services.CreateScope())
 {
     var contextoBancoDados = escopo.ServiceProvider.GetRequiredService<ContextoBancoDados>();
-    await contextoBancoDados.Database.EnsureCreatedAsync();
+    await contextoBancoDados.Database.MigrateAsync();
+    await ProdutoSeeder.SemearAsync(contextoBancoDados);
 }
 
 // Configure the HTTP request pipeline.

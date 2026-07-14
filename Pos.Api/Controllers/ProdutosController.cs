@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pos.Domain;
@@ -8,6 +9,7 @@ namespace Pos.Api.Controllers;
 
 [ApiController]
 [Route("produtos")]
+[Authorize]
 public class ProdutosController : ControllerBase
 {
     private readonly ContextoBancoDados _contextoBancoDados;
@@ -36,6 +38,7 @@ public class ProdutosController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProdutoDto>> Criar([FromBody] ProdutoRequest request)
     {
         var produto = new Produto
@@ -55,6 +58,7 @@ public class ProdutosController : ControllerBase
     }
 
     [HttpPatch("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProdutoDto>> Editar(int id, [FromBody] ProdutoAtualizacaoRequest request)
     {
         var produto = await _contextoBancoDados.Produtos.FindAsync(id);
@@ -94,6 +98,7 @@ public class ProdutosController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Remover(int id)
     {
         var produto = await _contextoBancoDados.Produtos.FindAsync(id);

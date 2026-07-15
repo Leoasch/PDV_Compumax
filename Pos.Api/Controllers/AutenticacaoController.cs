@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Pos.Api.Servicos;
 using Pos.Domain;
@@ -24,6 +25,7 @@ public class AutenticacaoController : ControllerBase
     }
 
     [HttpPost("entrar")]
+    [EnableRateLimiting("LoginRigoroso")]
     public async Task<ActionResult<LoginResponse>> Entrar([FromBody] LoginRequest request)
     {
         var usuario = await _contextoBancoDados.Usuarios

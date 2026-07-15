@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Pos.Api.Middlewares;
@@ -33,6 +36,55 @@ builder.Services.AddCors(opcoes =>
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
+});
+
+const string politicaLoginRigorosa = "LoginRigoroso";
+
+builder.Services.AddRateLimiter(opcoes =>
+{
+    opcoes.AddPolicy(politicaLoginRigorosa, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // Limite leve para o restante da Api. Particiona por usuário autenticado (não por IP):
+    // várias operadoras de caixa do mesmo mercado costumam sair pelo mesmo IP público,
+    // então particionar por IP faria uma compartilhar a cota das outras.
+    opcoes.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(contexto =>
+    {
+        var chave = contexto.User.Identity?.IsAuthenticated == true
+            ? contexto.User.FindFirstValue(ClaimTypes.NameIdentifier)!
+            : contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido";
+
+        return RateLimitPartition.GetFixedWindowLimiter(chave, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+
+    opcoes.OnRejected = async (contexto, cancellationToken) =>
+    {
+        contexto.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+        var problemDetailsService = contexto.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
+        await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = contexto.HttpContext,
+            ProblemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status429TooManyRequests,
+                Title = "Muitas tentativas.",
+                Detail = "Aguarde um pouco antes de tentar novamente."
+            }
+        });
+    };
 });
 
 var cadeiaDeConexao = builder.Configuration.GetConnectionString("BancoDados")
@@ -119,6 +171,9 @@ app.UseHttpsRedirection();
 app.UseCors(politicaCorsPadrao);
 
 app.UseAuthentication();
+
+app.UseRateLimiter();
+
 app.UseAuthorization();
 
 app.MapControllers();

@@ -2,9 +2,12 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Pos.Api.Middlewares;
 using Pos.Api.Servicos;
+using Pos.Domain;
 using Pos.Infrastructure.Dados;
 using Pos.Infrastructure.Dados.Seed;
 
@@ -16,6 +19,22 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers()
     .AddJsonOptions(opcoes => opcoes.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<TratadorGlobalDeExcecoes>();
+
+const string politicaCorsPadrao = "PadraoPos";
+var origensPermitidas = builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>() ?? [];
+
+builder.Services.AddCors(opcoes =>
+{
+    opcoes.AddPolicy(politicaCorsPadrao, politica =>
+    {
+        politica.WithOrigins(origensPermitidas)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var cadeiaDeConexao = builder.Configuration.GetConnectionString("BancoDados")
     ?? throw new InvalidOperationException("A conexão 'BancoDados' não foi configurada.");
 
@@ -24,6 +43,7 @@ Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "dad
 builder.Services.AdicionarPersistenciaSqlite(cadeiaDeConexao);
 
 builder.Services.AddSingleton<ServicoToken>();
+builder.Services.AddSingleton<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 
 var chaveSecreta = builder.Configuration["Jwt:ChaveSecreta"]
     ?? throw new InvalidOperationException("A chave 'Jwt:ChaveSecreta' não foi configurada.");
@@ -78,12 +98,14 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
+
 using (var escopo = app.Services.CreateScope())
 {
     var contextoBancoDados = escopo.ServiceProvider.GetRequiredService<ContextoBancoDados>();
     await contextoBancoDados.Database.MigrateAsync();
     await ProdutoSeeder.SemearAsync(contextoBancoDados);
-    await UsuarioSeeder.SemearAsync(contextoBancoDados);
+    await UsuarioSeeder.SemearAsync(contextoBancoDados, escopo.ServiceProvider.GetRequiredService<IPasswordHasher<Usuario>>());
 }
 
 // Configure the HTTP request pipeline.
@@ -93,6 +115,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(politicaCorsPadrao);
 
 app.UseAuthentication();
 app.UseAuthorization();

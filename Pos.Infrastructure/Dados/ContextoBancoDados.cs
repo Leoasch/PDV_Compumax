@@ -11,6 +11,8 @@ public sealed class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opco
 {
     public DbSet<Produto> Produtos => Set<Produto>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Venda> Vendas => Set<Venda>();
+    public DbSet<ItemVenda> ItensVenda => Set<ItemVenda>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +31,35 @@ public sealed class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opco
             usuario.Property(u => u.SenhaHash).IsRequired();
             usuario.Property(u => u.Papel).HasConversion<string>();
             usuario.HasIndex(u => u.NomeUsuario).IsUnique();
+        });
+
+        modelBuilder.Entity<Venda>(venda =>
+        {
+            venda.Property(v => v.UsuarioNomeCompleto).IsRequired();
+            venda.Property(v => v.Total).HasPrecision(18, 2);
+            venda.Property(v => v.FormaPagamento).HasConversion<string>();
+
+            venda.HasOne<Usuario>()
+                .WithMany()
+                .HasForeignKey(v => v.UsuarioId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            venda.HasMany(v => v.Itens)
+                .WithOne()
+                .HasForeignKey(i => i.VendaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ItemVenda>(item =>
+        {
+            item.Property(i => i.ProdutoCodigo).IsRequired();
+            item.Property(i => i.ProdutoDescricao).IsRequired();
+            item.Property(i => i.PrecoUnitario).HasPrecision(18, 2);
+
+            item.HasOne<Produto>()
+                .WithMany()
+                .HasForeignKey(i => i.ProdutoId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

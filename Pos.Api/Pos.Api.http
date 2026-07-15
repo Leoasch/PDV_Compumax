@@ -1,6 +1,58 @@
 @Pos.Api_HostAddress = http://localhost:5199
 
-GET {{Pos.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Login como admin (usuário seed: admin / admin123)
+# @name login
+POST {{Pos.Api_HostAddress}}/autenticacao/entrar
+Content-Type: application/json
 
-###
+{
+  "nomeUsuario": "admin",
+  "senha": "admin123"
+}
+
+### Buscar produtos (usa o token capturado no login acima)
+GET {{Pos.Api_HostAddress}}/produtos/buscar
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Erro de validação automática (DataAnnotations) -> ProblemDetails 400
+POST {{Pos.Api_HostAddress}}/usuarios
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "nomeUsuario": "",
+  "nomeCompleto": "x",
+  "senha": "123"
+}
+
+### Conflict manual via Problem() -> ProblemDetails 409 (rode duas vezes)
+POST {{Pos.Api_HostAddress}}/usuarios
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "nomeUsuario": "testehttp",
+  "nomeCompleto": "Teste Http",
+  "senha": "senha123",
+  "papel": "Caixa"
+}
+
+### NotFound() sem corpo -> ProblemDetails 404 automático
+PATCH {{Pos.Api_HostAddress}}/usuarios/9999
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "nomeCompleto": "não existe"
+}
+
+### Venda com produto inexistente -> ProblemDetails 400
+POST {{Pos.Api_HostAddress}}/vendas
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "itens": [
+    { "produtoId": 99999, "quantidade": 1 }
+  ]
+}

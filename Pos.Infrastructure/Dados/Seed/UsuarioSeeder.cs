@@ -12,7 +12,7 @@ public static class UsuarioSeeder
     public const string NomeUsuarioAdminPadrao = "admin";
     public const string SenhaAdminPadrao = "admin123";
 
-    public static async Task SemearAsync(ContextoBancoDados contexto)
+    public static async Task SemearAsync(ContextoBancoDados contexto, IPasswordHasher<Usuario> hasher)
     {
         if (await contexto.Usuarios.AnyAsync())
         {
@@ -26,7 +26,6 @@ public static class UsuarioSeeder
             Papel = PapelUsuario.Admin
         };
 
-        var hasher = new PasswordHasher<Usuario>();
         admin.SenhaHash = hasher.HashPassword(admin, SenhaAdminPadrao);
 
         contexto.Usuarios.Add(admin);

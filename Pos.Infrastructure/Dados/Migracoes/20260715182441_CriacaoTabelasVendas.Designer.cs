@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pos.Infrastructure.Dados;
 
@@ -10,9 +11,11 @@ using Pos.Infrastructure.Dados;
 namespace Pos.Infrastructure.Dados.Migracoes
 {
     [DbContext(typeof(ContextoBancoDados))]
-    partial class ContextoBancoDadosModelSnapshot : ModelSnapshot
+    [Migration("20260715182441_CriacaoTabelasVendas")]
+    partial class CriacaoTabelasVendas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -122,17 +125,7 @@ namespace Pos.Infrastructure.Dados.Migracoes
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("Cancelada")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("DataCancelamento")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("DataHora")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("FormaPagamento")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Total")

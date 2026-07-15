@@ -14,11 +14,13 @@ public class AutenticacaoController : ControllerBase
 {
     private readonly ContextoBancoDados _contextoBancoDados;
     private readonly ServicoToken _servicoToken;
+    private readonly IPasswordHasher<Usuario> _hasher;
 
-    public AutenticacaoController(ContextoBancoDados contextoBancoDados, ServicoToken servicoToken)
+    public AutenticacaoController(ContextoBancoDados contextoBancoDados, ServicoToken servicoToken, IPasswordHasher<Usuario> hasher)
     {
         _contextoBancoDados = contextoBancoDados;
         _servicoToken = servicoToken;
+        _hasher = hasher;
     }
 
     [HttpPost("entrar")]
@@ -32,8 +34,7 @@ public class AutenticacaoController : ControllerBase
             return Unauthorized();
         }
 
-        var hasher = new PasswordHasher<Usuario>();
-        var resultado = hasher.VerifyHashedPassword(usuario, usuario.SenhaHash, request.Senha);
+        var resultado = _hasher.VerifyHashedPassword(usuario, usuario.SenhaHash, request.Senha);
 
         if (resultado == PasswordVerificationResult.Failed)
         {

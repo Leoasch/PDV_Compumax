@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Pos.Api.Servicos;
 using Pos.Infrastructure.Dados;
 using Pos.Shared;
 using Usuario = Pos.Domain.Usuario;
@@ -15,10 +16,12 @@ namespace Pos.Api.Controllers;
 public class UsuariosController : ControllerBase
 {
     private readonly ContextoBancoDados _contextoBancoDados;
+    private readonly IPasswordHasher<Usuario> _hasher;
 
-    public UsuariosController(ContextoBancoDados contextoBancoDados)
+    public UsuariosController(ContextoBancoDados contextoBancoDados, IPasswordHasher<Usuario> hasher)
     {
         _contextoBancoDados = contextoBancoDados;
+        _hasher = hasher;
     }
 
     [HttpGet]
@@ -29,7 +32,7 @@ public class UsuariosController : ControllerBase
             .ToListAsync();
 
         return usuarios
-            .Select(u => new UsuarioDto(u.Id, u.NomeUsuario, u.NomeCompleto, (PapelUsuario)u.Papel, u.Ativo))
+            .Select(u => new UsuarioDto(u.Id, u.NomeUsuario, u.NomeCompleto, u.Papel.ParaCompartilhado(), u.Ativo))
             .ToList();
     }
 
@@ -39,23 +42,22 @@ public class UsuariosController : ControllerBase
         var jaExiste = await _contextoBancoDados.Usuarios.AnyAsync(u => u.NomeUsuario == request.NomeUsuario);
         if (jaExiste)
         {
-            return Conflict($"Já existe um usuário com o nome '{request.NomeUsuario}'.");
+            return Problem(detail: $"Já existe um usuário com o nome '{request.NomeUsuario}'.", statusCode: StatusCodes.Status409Conflict);
         }
 
         var usuario = new Usuario
         {
             NomeUsuario = request.NomeUsuario,
             NomeCompleto = request.NomeCompleto,
-            Papel = (PapelUsuarioDominio)request.Papel!.Value
+            Papel = request.Papel!.Value.ParaDominio()
         };
 
-        var hasher = new PasswordHasher<Usuario>();
-        usuario.SenhaHash = hasher.HashPassword(usuario, request.Senha);
+        usuario.SenhaHash = _hasher.HashPassword(usuario, request.Senha);
 
         _contextoBancoDados.Usuarios.Add(usuario);
         await _contextoBancoDados.SaveChangesAsync();
 
-        var dto = new UsuarioDto(usuario.Id, usuario.NomeUsuario, usuario.NomeCompleto, (PapelUsuario)usuario.Papel, usuario.Ativo);
+        var dto = new UsuarioDto(usuario.Id, usuario.NomeUsuario, usuario.NomeCompleto, usuario.Papel.ParaCompartilhado(), usuario.Ativo);
         return CreatedAtAction(nameof(Listar), dto);
     }
 
@@ -69,12 +71,12 @@ public class UsuariosController : ControllerBase
         }
 
         var eraAdminAtivo = usuario.Papel == PapelUsuarioDominio.Admin && usuario.Ativo;
-        var continuaAdminAtivo = (request.Papel ?? (PapelUsuario)usuario.Papel) == PapelUsuario.Admin
+        var continuaAdminAtivo = (request.Papel ?? usuario.Papel.ParaCompartilhado()) == PapelUsuario.Admin
             && (request.Ativo ?? usuario.Ativo);
 
         if (eraAdminAtivo && !continuaAdminAtivo && !await ExisteOutroAdminAtivoAsync(id))
         {
-            return Conflict("Não é possível remover o último administrador ativo do sistema.");
+            return Problem(detail: "Não é possível remover o último administrador ativo do sistema.", statusCode: StatusCodes.Status409Conflict);
         }
 
         if (request.NomeUsuario is not null)
@@ -82,7 +84,7 @@ public class UsuariosController : ControllerBase
             var jaExiste = await _contextoBancoDados.Usuarios.AnyAsync(u => u.Id != id && u.NomeUsuario == request.NomeUsuario);
             if (jaExiste)
             {
-                return Conflict($"Já existe um usuário com o nome '{request.NomeUsuario}'.");
+                return Problem(detail: $"Já existe um usuário com o nome '{request.NomeUsuario}'.", statusCode: StatusCodes.Status409Conflict);
             }
 
             usuario.NomeUsuario = request.NomeUsuario;
@@ -95,13 +97,12 @@ public class UsuariosController : ControllerBase
 
         if (request.Senha is not null)
         {
-            var hasher = new PasswordHasher<Usuario>();
-            usuario.SenhaHash = hasher.HashPassword(usuario, request.Senha);
+            usuario.SenhaHash = _hasher.HashPassword(usuario, request.Senha);
         }
 
         if (request.Papel is not null)
         {
-            usuario.Papel = (PapelUsuarioDominio)request.Papel.Value;
+            usuario.Papel = request.Papel.Value.ParaDominio();
         }
 
         if (request.Ativo is not null)
@@ -111,7 +112,7 @@ public class UsuariosController : ControllerBase
 
         await _contextoBancoDados.SaveChangesAsync();
 
-        return Ok(new UsuarioDto(usuario.Id, usuario.NomeUsuario, usuario.NomeCompleto, (PapelUsuario)usuario.Papel, usuario.Ativo));
+        return Ok(new UsuarioDto(usuario.Id, usuario.NomeUsuario, usuario.NomeCompleto, usuario.Papel.ParaCompartilhado(), usuario.Ativo));
     }
 
     [HttpDelete("{id:int}")]
@@ -126,7 +127,7 @@ public class UsuariosController : ControllerBase
         var eraAdminAtivo = usuario.Papel == PapelUsuarioDominio.Admin && usuario.Ativo;
         if (eraAdminAtivo && !await ExisteOutroAdminAtivoAsync(id))
         {
-            return Conflict("Não é possível remover o último administrador ativo do sistema.");
+            return Problem(detail: "Não é possível remover o último administrador ativo do sistema.", statusCode: StatusCodes.Status409Conflict);
         }
 
         _contextoBancoDados.Usuarios.Remove(usuario);

@@ -1,9 +1,16 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
+@inject ServicoAtalhos ServicoAtalhos
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@implements IDisposable
 
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@(() => _menuAberto = !_menuAberto)" />
         <MudText Typo="Typo.h6">PDV Compumax</MudText>
+        <MudSpacer />
+        <kbd>@ServicoAtalhos.ObterTecla("AlternarMenu")</kbd>
+        <MudText Class="ml-1">Menu</MudText>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_menuAberto" Elevation="2">
@@ -19,4 +26,47 @@
 
 @code {
     private bool _menuAberto = true;
+    private readonly List<IDisposable> _atalhos = [];
+
+    protected override void OnInitialized()
+    {
+        ServicoAtalhos.DefinirTecla("AlternarMenu", "F5");
+        ServicoAtalhos.DefinirTecla("IrParaInicio", "F2");
+        ServicoAtalhos.DefinirTecla("IrParaCounter", "F3");
+
+        _atalhos.Add(ServicoAtalhos.Registrar("AlternarMenu", () =>
+        {
+            _menuAberto = !_menuAberto;
+            StateHasChanged();
+            return Task.CompletedTask;
+        }));
+
+        _atalhos.Add(ServicoAtalhos.Registrar("IrParaInicio", () =>
+        {
+            NavigationManager.NavigateTo("/");
+            return Task.CompletedTask;
+        }));
+
+        _atalhos.Add(ServicoAtalhos.Registrar("IrParaCounter", () =>
+        {
+            NavigationManager.NavigateTo("/counter");
+            return Task.CompletedTask;
+        }));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ServicoAtalhos.IniciarCapturaGlobalAsync(JSRuntime);
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var atalho in _atalhos)
+        {
+            atalho.Dispose();
+        }
+    }
 }

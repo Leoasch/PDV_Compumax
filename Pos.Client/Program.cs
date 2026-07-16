@@ -28,5 +28,6 @@ builder.Services.AddAuthorizationCore();
 
 builder.Services.AddScoped<ServicoAutenticacao>();
 builder.Services.AddScoped<ServicoProdutos>();
+builder.Services.AddScoped<ServicoAtalhos>();
 
 await builder.Build().RunAsync();

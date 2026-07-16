@@ -52,9 +52,6 @@ builder.Services.AddRateLimiter(opcoes =>
                 QueueLimit = 0
             }));
 
-    // Limite leve para o restante da Api. Particiona por usuário autenticado (não por IP):
-    // várias operadoras de caixa do mesmo mercado costumam sair pelo mesmo IP público,
-    // então particionar por IP faria uma compartilhar a cota das outras.
     opcoes.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(contexto =>
     {
         var chave = contexto.User.Identity?.IsAuthenticated == true

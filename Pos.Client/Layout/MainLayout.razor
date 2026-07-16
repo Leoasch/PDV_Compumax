@@ -1,22 +1,22 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
+@inherits LayoutComponentBase
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@(() => _menuAberto = !_menuAberto)" />
+        <MudText Typo="Typo.h6">PDV Compumax</MudText>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_menuAberto" Elevation="2">
         <NavMenu />
-    </div>
+    </MudDrawer>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-        <MudThemeProvider />
-        <MudPopoverProvider />
-        <MudDialogProvider />
-        <MudSnackbarProvider />
-
-        <article class="content px-4">
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
             @Body
-            @* <script src="_content/MudBlazor/MudBlazor.min.js"></script> *@
-            
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _menuAberto = true;
+}

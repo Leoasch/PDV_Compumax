@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using Pos.Domain;
+using Pos.Shared;
 
 namespace Pos.Api.Servicos;
 
@@ -22,7 +23,8 @@ public sealed class ServicoToken(IConfiguration configuracao)
         {
             new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
             new Claim(ClaimTypes.Name, usuario.NomeUsuario),
-            new Claim(ClaimTypes.Role, usuario.Papel.ToString())
+            new Claim(ClaimTypes.Role, usuario.Papel.ToString()),
+            new Claim(ClaimsPersonalizadas.NomeCompleto, usuario.NomeCompleto)
         };
 
         var chave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chaveSecreta));

@@ -1,0 +1,86 @@
+@page "/login"
+@layout LayoutLogin
+@inject ServicoAutenticacao ServicoAutenticacao
+@inject NavigationManager NavigationManager
+
+<PageTitle>Entrar</PageTitle>
+
+<MudPaper Class="pa-8" Width="380px" Elevation="4">
+    <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-6">PDV Compumax</MudText>
+
+    <MudForm @ref="_form" Model="_modelo">
+        <MudTextField T="string"
+                      @bind-Value="_modelo.NomeUsuario"
+                      Label="Usuário"
+                      Required="true"
+                      RequiredError="Informe o usuário"
+                      Disabled="_carregando"
+                      Immediate="true" />
+
+        <MudTextField T="string"
+                      @bind-Value="_modelo.Senha"
+                      Label="Senha"
+                      InputType="InputType.Password"
+                      Required="true"
+                      RequiredError="Informe a senha"
+                      Disabled="_carregando"
+                      Immediate="true"
+                      Class="mt-4"
+                      OnKeyUp="@(async e => { if (e.Key == "Enter") await EntrarAsync(); })" />
+
+        @if (_erro is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">@_erro</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Class="mt-6"
+                   Disabled="_carregando"
+                   OnClick="EntrarAsync">
+            @if (_carregando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Entrar
+        </MudButton>
+    </MudForm>
+</MudPaper>
+
+@code {
+    private MudForm _form = default!;
+    private readonly ModeloLogin _modelo = new();
+    private bool _carregando;
+    private string? _erro;
+
+    private async Task EntrarAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _erro = null;
+        _carregando = true;
+
+        var sucesso = await ServicoAutenticacao.EntrarAsync(_modelo.NomeUsuario, _modelo.Senha);
+
+        _carregando = false;
+
+        if (!sucesso)
+        {
+            _erro = "Usuário ou senha inválidos.";
+            return;
+        }
+
+        NavigationManager.NavigateTo("/");
+    }
+
+    private class ModeloLogin
+    {
+        public string NomeUsuario { get; set; } = string.Empty;
+        public string Senha { get; set; } = string.Empty;
+    }
+}

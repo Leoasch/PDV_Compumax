@@ -17,7 +17,7 @@ public class ServicoAutenticacao(
             return false;
         }
 
-        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>();
+        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>(OpcoesJson.Padrao);
         await armazenamentoToken.DefinirAsync(login!.Token);
 
         providerEstadoAutenticacao.NotificarMudancaEstado();

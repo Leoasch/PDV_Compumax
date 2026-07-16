@@ -104,7 +104,9 @@ public class ServicoAtalhos
             .Select(par => par.Key)
             .ToArray();
 
-        await _jsRuntime.InvokeVoidAsync("posAtalhos.definirTeclasReservadas", teclasAtivas);
+        // O cast evita que string[] seja interpretado como os vários argumentos
+        // do método JS; ele deve chegar ao JavaScript como um único array.
+        await _jsRuntime.InvokeVoidAsync("posAtalhos.definirTeclasReservadas", (object)teclasAtivas);
     }
 
     private static string NormalizarTecla(string tecla, bool ctrl, bool shift, bool alt)

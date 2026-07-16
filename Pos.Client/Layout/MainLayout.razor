@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using Pos.Client.Componentes
+@inherits LayoutComponentBase
 @inject ServicoAtalhos ServicoAtalhos
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -9,8 +10,6 @@
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@(() => _menuAberto = !_menuAberto)" />
         <MudText Typo="Typo.h6">PDV Compumax</MudText>
         <MudSpacer />
-        <kbd>@ServicoAtalhos.ObterTecla("AlternarMenu")</kbd>
-        <MudText Class="ml-1">Menu</MudText>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_menuAberto" Elevation="2">
@@ -18,7 +17,7 @@
     </MudDrawer>
 
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-1">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -30,9 +29,15 @@
 
     protected override void OnInitialized()
     {
-        ServicoAtalhos.DefinirTecla("AlternarMenu", "F5");
+        ServicoAtalhos.DefinirTecla("AlternarMenu", "Escape");
         ServicoAtalhos.DefinirTecla("IrParaInicio", "F2");
         ServicoAtalhos.DefinirTecla("IrParaCounter", "F3");
+        ServicoAtalhos.DefinirTecla("MostrarTeclasReservadas", "F6");
+
+        _atalhos.Add(ServicoAtalhos.Registrar("MostrarTeclasReservadas", async () =>
+        {
+            await JSRuntime.InvokeVoidAsync("posAtalhos.mostrarTeclasReservadas");
+        }));
 
         _atalhos.Add(ServicoAtalhos.Registrar("AlternarMenu", () =>
         {

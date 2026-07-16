@@ -1,0 +1,157 @@
+@inject ServicoUsuario ServicoUsuario
+
+<MudDialog>
+    <TitleContent>@(UsuarioId is null ? "Novo usuário" : "Editar usuário")</TitleContent>
+    <DialogContent>
+        @if (_carregando)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudForm @ref="_form" Model="_modelo">
+                <MudTextField T="string"
+                              @bind-Value="_modelo.NomeUsuario"
+                              Label="Usuário"
+                              Required="true"
+                              RequiredError="Informe o usuário" />
+
+                <MudTextField T="string"
+                              @bind-Value="_modelo.NomeCompleto"
+                              Label="Nome completo"
+                              Required="true"
+                              RequiredError="Informe o nome completo"
+                              Class="mt-4" />
+
+                <MudTextField T="string"
+                              @bind-Value="_modelo.Senha"
+                              Label="@(UsuarioId is null ? "Senha" : "Nova senha (deixe em branco para manter)")"
+                              InputType="InputType.Password"
+                              Required="@(UsuarioId is null)"
+                              RequiredError="Informe a senha"
+                              Validation="@(new Func<string, string?>(ValidarSenha))"
+                              Class="mt-4" />
+
+                <MudSelect T="PapelUsuario" @bind-Value="_modelo.Papel" Label="Papel" Class="mt-4">
+                    <MudSelectItem T="PapelUsuario" Value="PapelUsuario.Admin">Admin</MudSelectItem>
+                    <MudSelectItem T="PapelUsuario" Value="PapelUsuario.Caixa">Caixa</MudSelectItem>
+                </MudSelect>
+
+                @if (UsuarioId is not null)
+                {
+                    <MudCheckBox T="bool" @bind-Value="_modelo.Ativo" Label="Ativo" Class="mt-4" />
+                }
+
+                @if (_erro is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">@_erro</MudAlert>
+                }
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_carregando || _salvando)" OnClick="SalvarAsync">
+            @if (_salvando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Salvar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int? UsuarioId { get; set; }
+
+    private MudForm _form = default!;
+    private readonly ModeloUsuario _modelo = new();
+    private bool _carregando;
+    private bool _salvando;
+    private string? _erro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UsuarioId is null)
+        {
+            return;
+        }
+
+        _carregando = true;
+        try
+        {
+            var usuario = await ServicoUsuario.ObterPorIdAsync(UsuarioId.Value);
+            if (usuario is not null)
+            {
+                _modelo.NomeUsuario = usuario.NomeUsuario;
+                _modelo.NomeCompleto = usuario.NomeCompleto;
+                _modelo.Papel = usuario.Papel;
+                _modelo.Ativo = usuario.Ativo;
+            }
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private string? ValidarSenha(string senha)
+    {
+        if (UsuarioId is not null && string.IsNullOrEmpty(senha))
+        {
+            return null;
+        }
+
+        return senha.Length >= 6 ? null : "A senha precisa ter ao menos 6 caracteres";
+    }
+
+    private async Task SalvarAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        _erro = null;
+        _salvando = true;
+
+        (bool Sucesso, string? Erro) resultado;
+        if (UsuarioId is null)
+        {
+            resultado = await ServicoUsuario.CriarAsync(new UsuarioRequest(
+                _modelo.NomeUsuario, _modelo.NomeCompleto, _modelo.Senha, _modelo.Papel));
+        }
+        else
+        {
+            resultado = await ServicoUsuario.EditarAsync(UsuarioId.Value, new UsuarioAtualizacaoRequest(
+                _modelo.NomeUsuario,
+                _modelo.NomeCompleto,
+                string.IsNullOrEmpty(_modelo.Senha) ? null : _modelo.Senha,
+                _modelo.Papel,
+                _modelo.Ativo));
+        }
+
+        _salvando = false;
+
+        if (!resultado.Sucesso)
+        {
+            _erro = resultado.Erro ?? "Não foi possível salvar o usuário.";
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    private class ModeloUsuario
+    {
+        public string NomeUsuario { get; set; } = string.Empty;
+        public string NomeCompleto { get; set; } = string.Empty;
+        public string Senha { get; set; } = string.Empty;
+        public PapelUsuario Papel { get; set; } = PapelUsuario.Caixa;
+        public bool Ativo { get; set; } = true;
+    }
+}

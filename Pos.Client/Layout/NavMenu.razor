@@ -1,28 +1,42 @@
-﻿@inject ServicoAutenticacao ServicoAutenticacao
+﻿@using Pos.Client.Componentes
+@inject ServicoAutenticacao ServicoAutenticacao
 @inject ServicoAtalhos ServicoAtalhos
 @inject NavigationManager NavigationManager
 
-<MudNavMenu>
+<MudNavMenu Style="display:flex; flex-direction:column; height:100%;">
     <AuthorizeView>
         <Authorized>
             <MudText Typo="Typo.subtitle2" Class="px-4 py-2" Color="Color.Primary">
                 @context.User.FindFirst(ClaimsPersonalizadas.NomeCompleto)?.Value
             </MudText>
-            <MudDivider Class="mb-2" />
+            <MudDivider Class="mb-2" Style="flex-grow:0;" />
         </Authorized>
     </AuthorizeView>
 
     <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
-        Início <kbd>@ServicoAtalhos.ObterTecla("IrParaInicio")</kbd>
+        Início <Atalho Tecla="@ServicoAtalhos.ObterTecla("IrParaInicio")" />
     </MudNavLink>
-    <MudNavLink Href="counter" Icon="@Icons.Material.Filled.Add">
-        Counter <kbd>@ServicoAtalhos.ObterTecla("IrParaCounter")</kbd>
-    </MudNavLink>
+
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <MudNavLink Href="dashboard/users" Icon="@Icons.Material.Filled.ManageAccounts">
+                Usuários
+            </MudNavLink>
+            <MudNavLink Href="dashboard/produtos" Icon="@Icons.Material.Filled.Inventory2">
+                Produtos
+            </MudNavLink>
+        </Authorized>
+    </AuthorizeView>
 
     <AuthorizeView>
         <Authorized>
-            <MudDivider Class="my-2" />
-            <MudNavLink OnClick="SairAsync" Icon="@Icons.Material.Filled.Logout">Sair</MudNavLink>
+            <MudNavLink Href="dashboard/vendas" Icon="@Icons.Material.Filled.PointOfSale">
+                Vendas
+            </MudNavLink>
+            <div style="margin-top:auto;">
+                <MudDivider Class="mb-2" />
+                <MudNavLink OnClick="SairAsync" Icon="@Icons.Material.Filled.Logout">Sair</MudNavLink>
+            </div>
         </Authorized>
     </AuthorizeView>
 </MudNavMenu>

@@ -37,6 +37,15 @@ public class ProdutosController : ControllerBase
             .ToListAsync();
     }
 
+    [HttpGet("{id:int}")]
+    public async Task<ProdutoDto?> PegarProduto(int id)
+    {
+        var produto = await _contextoBancoDados.Produtos.FindAsync(id);
+        return produto is null
+            ? null
+            : new ProdutoDto(produto.Id, produto.Codigo, produto.Descricao, produto.PrecoCusto, produto.PrecoVenda, produto.QuantidadeEstoque);
+    }
+
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ProdutoDto>> Criar([FromBody] ProdutoRequest request)

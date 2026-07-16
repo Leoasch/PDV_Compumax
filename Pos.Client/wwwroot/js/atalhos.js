@@ -15,6 +15,10 @@ window.posAtalhos = {
 
     definirTeclasReservadas: function (teclas) {
         window.posAtalhos.teclasReservadas = new Set(teclas);
+    },
+
+    mostrarTeclasReservadas: function () {
+        console.table([...window.posAtalhos.teclasReservadas]);
     }
 };
 

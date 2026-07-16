@@ -1,0 +1,115 @@
+@page "/dashboard/users"
+@attribute [Authorize(Roles = "Admin")]
+@using System.Security.Claims
+@inject ServicoUsuario ServicoUsuario
+@inject IDialogService DialogService
+@inject AuthenticationStateProvider ProvedorEstadoAutenticacao
+
+<PageTitle>Dashboard usuários</PageTitle>
+
+<h1>Usuários</h1>
+
+<MudButton
+  Class="mb-4"
+  StartIcon="@Icons.Material.Filled.Add"
+  Color="Color.Primary"
+  Variant="Variant.Filled"
+  OnClick="@(() => AbrirModalAsync(null))">
+  Adicionar usuário
+</MudButton>
+
+<MudTable Items="@_usuarios" Hover="true" Loading="@_carregando">
+  <HeaderContent>
+    <MudTh>Nome</MudTh>
+    <MudTh>Usuário</MudTh>
+    <MudTh>Papel</MudTh>
+    <MudTh>Ativo</MudTh>
+    <MudTh></MudTh>
+  </HeaderContent>
+  <RowTemplate>
+    <MudTd>@context.NomeCompleto</MudTd>
+    <MudTd>@context.NomeUsuario</MudTd>
+    <MudTd>@context.Papel</MudTd>
+    <MudTd>@(context.Ativo ? "Ativo" : "Desativado")</MudTd>
+    <MudTd>
+      <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => AbrirModalAsync(context.Id))" />
+      <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                     Size="Size.Small"
+                     Color="Color.Error"
+                     Disabled="@(context.Id == _idUsuarioLogado)"
+                     title="@(context.Id == _idUsuarioLogado ? "Não é possível remover seu próprio usuário" : "Remover usuário")"
+                     OnClick="@(() => RemoverAsync(context))" />
+    </MudTd>
+  </RowTemplate>
+</MudTable>
+
+
+@code {
+    private bool _carregando = true;
+    private List<UsuarioDto> _usuarios = [];
+    private int _idUsuarioLogado;
+
+    private async Task CarregarUsuariosAsync()
+    {
+        _carregando = true;
+        try
+        {
+            _usuarios = await ServicoUsuario.GetUsuarios();
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private async Task AbrirModalAsync(int? usuarioId)
+    {
+        var parametros = new DialogParameters { { nameof(ModalUsuario.UsuarioId), usuarioId } };
+        var opcoes = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialogo = await DialogService.ShowAsync<ModalUsuario>(null, parametros, opcoes);
+        var resultado = await dialogo.Result;
+
+        if (resultado is not null && !resultado.Canceled)
+        {
+            await CarregarUsuariosAsync();
+        }
+    }
+
+    private async Task RemoverAsync(UsuarioDto usuario)
+    {
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Remover usuário",
+            $"Tem certeza que deseja remover o usuário '{usuario.NomeCompleto}'? Essa ação não pode ser desfeita.",
+            yesText: "Remover",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+        {
+            return;
+        }
+
+        var resultado = await ServicoUsuario.RemoverAsync(usuario.Id);
+        if (resultado.Sucesso)
+        {
+            await CarregarUsuariosAsync();
+        }
+        else
+        {
+            await DialogService.ShowMessageBoxAsync(
+                "Erro ao remover usuário",
+                resultado.Erro ?? "Não foi possível remover o usuário.");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estadoAutenticacao = await ProvedorEstadoAutenticacao.GetAuthenticationStateAsync();
+        var idClaim = estadoAutenticacao.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (idClaim is not null && int.TryParse(idClaim, out var id))
+        {
+            _idUsuarioLogado = id;
+        }
+
+        await CarregarUsuariosAsync();
+    }
+}

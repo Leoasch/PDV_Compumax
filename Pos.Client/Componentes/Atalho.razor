@@ -1,0 +1,16 @@
+<span class="componente-atalho">
+  <kbd class="atalho-tecla">@Tecla</kbd>
+
+  @if (!string.IsNullOrWhiteSpace(Descricao))
+  {
+    <span>@Descricao</span>
+  }
+</span>
+
+@code {
+  [Parameter, EditorRequired]
+  public string Tecla { get; set; } = default!;
+
+  [Parameter]
+  public string Descricao { get; set; } = default!;
+}

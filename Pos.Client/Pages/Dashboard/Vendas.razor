@@ -1,0 +1,23 @@
+@page "/dashboard/vendas"
+@attribute [Authorize]
+@inject ServicoAtalhos ServicoAtalhos
+@implements IDisposable
+
+<PageTitle>Dashboard vendas</PageTitle>
+
+<h1>Vendas</h1>
+
+@code {
+  private IDisposable? _atalhoIncrementar;
+
+  protected override void OnInitialized()
+  {
+    
+  }
+
+
+  public void Dispose()
+  {
+    _atalhoIncrementar?.Dispose();
+  }
+}

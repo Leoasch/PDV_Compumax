@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -36,6 +37,15 @@ public class UsuariosController : ControllerBase
             .ToList();
     }
 
+    [HttpGet("{id:int}")]
+    public async Task<UsuarioDto?> PegarUsuario(int id)
+    {
+        var usuario = await _contextoBancoDados.Usuarios.FindAsync(id);
+        return usuario is null
+            ? null
+            : new UsuarioDto(usuario.Id, usuario.NomeUsuario, usuario.NomeCompleto, usuario.Papel.ParaCompartilhado(), usuario.Ativo);
+    }
+
     [HttpPost]
     public async Task<ActionResult<UsuarioDto>> Criar([FromBody] UsuarioRequest request)
     {
@@ -68,6 +78,15 @@ public class UsuariosController : ControllerBase
         if (usuario is null)
         {
             return NotFound();
+        }
+
+        var idUsuarioAutenticado = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var alterandoPapelOuAtivo = (request.Papel is not null && request.Papel.Value != usuario.Papel.ParaCompartilhado())
+            || (request.Ativo is not null && request.Ativo.Value != usuario.Ativo);
+
+        if (id == idUsuarioAutenticado && alterandoPapelOuAtivo)
+        {
+            return Problem(detail: "Não é possível alterar seu próprio papel ou status de ativação.", statusCode: StatusCodes.Status409Conflict);
         }
 
         var eraAdminAtivo = usuario.Papel == PapelUsuarioDominio.Admin && usuario.Ativo;

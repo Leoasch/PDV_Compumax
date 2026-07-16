@@ -6,8 +6,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 namespace Pos.Client.Servicos;
 
 /// <summary>
-/// Informa ao Blazor (AuthorizeView, [Authorize] em rotas, etc.) se há um usuário logado,
-/// a partir do token JWT guardado no localStorage.
+/// Sistema para identificar se o cliente está logado ou não
 /// </summary>
 public class ProviderEstadoAutenticacao(ArmazenamentoToken armazenamentoToken) : AuthenticationStateProvider
 {
@@ -22,7 +21,19 @@ public class ProviderEstadoAutenticacao(ArmazenamentoToken armazenamentoToken) :
             return new AuthenticationState(Anonimo);
         }
 
-        var claims = LerClaimsDoToken(token).ToList();
+        List<Claim> claims;
+        try
+        {
+            claims = LerClaimsDoToken(token).ToList();
+        }
+        catch (Exception)
+        {
+            // Token corrompido/formato inesperado no localStorage (ex: sobra de uma versão
+            // antiga do app). Trata como deslogado em vez de derrubar o AuthorizeView inteiro.
+            await armazenamentoToken.RemoverAsync();
+            return new AuthenticationState(Anonimo);
+        }
+
         var expiracao = claims.FirstOrDefault(c => c.Type == "exp")?.Value;
 
         if (expiracao is not null && long.TryParse(expiracao, out var expUnix)

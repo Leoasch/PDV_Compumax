@@ -1,0 +1,112 @@
+@page "/dashboard/produtos"
+@attribute [Authorize(Roles = "Admin")]
+@inject ServicoProdutos ServicoProdutos
+@inject ServicoAtalhos ServicoAtalhos
+@inject IDialogService DialogService
+@implements IDisposable
+
+<PageTitle>Dashboard produtos</PageTitle>
+
+<h1>Produtos</h1>
+
+<MudButton
+  Class="mb-4"
+  StartIcon="@Icons.Material.Filled.Add"
+  Color="Color.Primary"
+  Variant="Variant.Filled"
+  OnClick="@(() => AbrirModalAsync(null))">
+  Adicionar produto
+</MudButton>
+
+<MudTable Items="@_produtos" Hover="true" Loading="@_carregando">
+  <HeaderContent>
+    <MudTh>Código</MudTh>
+    <MudTh>Descrição</MudTh>
+    <MudTh>Preço de custo</MudTh>
+    <MudTh>Preço de venda</MudTh>
+    <MudTh>Estoque</MudTh>
+    <MudTh></MudTh>
+  </HeaderContent>
+  <RowTemplate>
+    <MudTd>@context.Codigo</MudTd>
+    <MudTd>@context.Descricao</MudTd>
+    <MudTd>@context.PrecoCusto.ToString("C2")</MudTd>
+    <MudTd>@context.PrecoVenda.ToString("C2")</MudTd>
+    <MudTd>@context.QuantidadeEstoque</MudTd>
+    <MudTd>
+      <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => AbrirModalAsync(context.Id))" />
+      <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                     Size="Size.Small"
+                     Color="Color.Error"
+                     OnClick="@(() => RemoverAsync(context))" />
+    </MudTd>
+  </RowTemplate>
+</MudTable>
+
+@code {
+  private IDisposable? _atalhoIncrementar;
+  private bool _carregando = true;
+  private List<ProdutoDto> _produtos = [];
+
+  private async Task CarregarProdutosAsync()
+  {
+    _carregando = true;
+    try
+    {
+      _produtos = await ServicoProdutos.BuscarAsync();
+    }
+    finally
+    {
+      _carregando = false;
+    }
+  }
+
+  private async Task AbrirModalAsync(int? produtoId)
+  {
+    var parametros = new DialogParameters { { nameof(ModalProduto.ProdutoId), produtoId } };
+    var opcoes = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+    var dialogo = await DialogService.ShowAsync<ModalProduto>(null, parametros, opcoes);
+    var resultado = await dialogo.Result;
+
+    if (resultado is not null && !resultado.Canceled)
+    {
+      await CarregarProdutosAsync();
+    }
+  }
+
+  private async Task RemoverAsync(ProdutoDto produto)
+  {
+    var confirmado = await DialogService.ShowMessageBoxAsync(
+        "Remover produto",
+        $"Tem certeza que deseja remover o produto '{produto.Descricao}'? Essa ação não pode ser desfeita.",
+        yesText: "Remover",
+        cancelText: "Cancelar");
+
+    if (confirmado != true)
+    {
+      return;
+    }
+
+    var resultado = await ServicoProdutos.RemoverAsync(produto.Id);
+    if (resultado.Sucesso)
+    {
+      await CarregarProdutosAsync();
+    }
+    else
+    {
+      await DialogService.ShowMessageBoxAsync(
+          "Erro ao remover produto",
+          resultado.Erro ?? "Não foi possível remover o produto.");
+    }
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    await CarregarProdutosAsync();
+  }
+
+  public void Dispose()
+  {
+    _atalhoIncrementar?.Dispose();
+  }
+}

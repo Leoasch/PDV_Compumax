@@ -1,21 +1,27 @@
-﻿@using Pos.Client.Componentes
-@inject ServicoAutenticacao ServicoAutenticacao
+﻿@inject ServicoAutenticacao ServicoAutenticacao
 @inject ServicoAtalhos ServicoAtalhos
 @inject NavigationManager NavigationManager
 
 <MudNavMenu Style="display:flex; flex-direction:column; height:100%;">
     <AuthorizeView>
         <Authorized>
-            <MudText Typo="Typo.subtitle2" Class="px-4 py-2" Color="Color.Primary">
+            <MudText Typo="Typo.h6" Class="px-4 py-2" Color="Color.Primary" >
                 @context.User.FindFirst(ClaimsPersonalizadas.NomeCompleto)?.Value
             </MudText>
             <MudDivider Class="mb-2" Style="flex-grow:0;" />
         </Authorized>
     </AuthorizeView>
 
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
-        Início <Atalho Tecla="@ServicoAtalhos.ObterTecla("IrParaInicio")" />
-    </MudNavLink>
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PointOfSale">
+                Caixa
+            </MudNavLink>
+            <MudNavLink Href="dashboard/vendas" Icon="@Icons.Material.Filled.ReceiptLong">
+                Vendas
+            </MudNavLink>
+        </Authorized>
+    </AuthorizeView>
 
     <AuthorizeView Roles="Admin">
         <Authorized>
@@ -30,9 +36,6 @@
 
     <AuthorizeView>
         <Authorized>
-            <MudNavLink Href="dashboard/vendas" Icon="@Icons.Material.Filled.PointOfSale">
-                Vendas
-            </MudNavLink>
             <div style="margin-top:auto;">
                 <MudDivider Class="mb-2" />
                 <MudNavLink OnClick="SairAsync" Icon="@Icons.Material.Filled.Logout">Sair</MudNavLink>

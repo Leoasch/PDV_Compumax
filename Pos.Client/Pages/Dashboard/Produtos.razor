@@ -18,7 +18,16 @@
   Adicionar produto
 </MudButton>
 
-<MudTable Items="@_produtos" Hover="true" Loading="@_carregando">
+<MudTextField T="string"
+              @bind-Value="_termoBusca"
+              Immediate="true"
+              Placeholder="Buscar por código ou descrição..."
+              Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search"
+              Class="mb-4" />
+
+<MudTable Items="@_produtos" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<ProdutoDto, bool>(FiltrarProduto)"
+          Height="calc(100vh - 290px)" FixedHeader="true">
   <HeaderContent>
     <MudTh>Código</MudTh>
     <MudTh>Descrição</MudTh>
@@ -28,8 +37,8 @@
     <MudTh></MudTh>
   </HeaderContent>
   <RowTemplate>
-    <MudTd>@context.Codigo</MudTd>
-    <MudTd>@context.Descricao</MudTd>
+    <MudTd><MudHighlighter Text="@context.Codigo" HighlightedText="@_termoBusca" /></MudTd>
+    <MudTd><MudHighlighter Text="@context.Descricao" HighlightedText="@_termoBusca" /></MudTd>
     <MudTd>@context.PrecoCusto.ToString("C2")</MudTd>
     <MudTd>@context.PrecoVenda.ToString("C2")</MudTd>
     <MudTd>@context.QuantidadeEstoque</MudTd>
@@ -41,12 +50,27 @@
                      OnClick="@(() => RemoverAsync(context))" />
     </MudTd>
   </RowTemplate>
+  <PagerContent>
+    <MudTablePager PageSizeOptions="new[] { 10, 25, 50, 100 }" />
+  </PagerContent>
 </MudTable>
 
 @code {
   private IDisposable? _atalhoIncrementar;
   private bool _carregando = true;
   private List<ProdutoDto> _produtos = [];
+  private string _termoBusca = string.Empty;
+
+  private bool FiltrarProduto(ProdutoDto produto)
+  {
+    if (string.IsNullOrWhiteSpace(_termoBusca))
+    {
+      return true;
+    }
+
+    return produto.Codigo.Contains(_termoBusca, StringComparison.OrdinalIgnoreCase)
+        || produto.Descricao.Contains(_termoBusca, StringComparison.OrdinalIgnoreCase);
+  }
 
   private async Task CarregarProdutosAsync()
   {

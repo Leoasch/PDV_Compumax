@@ -1,0 +1,23 @@
+.opcoes-forma-pagamento ::deep .mud-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.opcoes-forma-pagamento ::deep .opcao-forma-pagamento {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 8px;
+}
+
+.opcoes-forma-pagamento ::deep .opcao-forma-pagamento:hover {
+    cursor: pointer;
+    background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.opcao-forma-pagamento-conteudo {
+    width: 100%;
+}

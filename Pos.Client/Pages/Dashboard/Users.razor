@@ -18,7 +18,16 @@
   Adicionar usuário
 </MudButton>
 
-<MudTable Items="@_usuarios" Hover="true" Loading="@_carregando">
+<MudTextField T="string"
+              @bind-Value="_termoBusca"
+              Immediate="true"
+              Placeholder="Buscar por nome ou usuário..."
+              Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search"
+              Class="mb-4" />
+
+<MudTable Items="@_usuarios" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<UsuarioDto, bool>(FiltrarUsuario)"
+          Height="calc(100vh - 290px)" FixedHeader="true">
   <HeaderContent>
     <MudTh>Nome</MudTh>
     <MudTh>Usuário</MudTh>
@@ -27,8 +36,8 @@
     <MudTh></MudTh>
   </HeaderContent>
   <RowTemplate>
-    <MudTd>@context.NomeCompleto</MudTd>
-    <MudTd>@context.NomeUsuario</MudTd>
+    <MudTd><MudHighlighter Text="@context.NomeCompleto" HighlightedText="@_termoBusca" /></MudTd>
+    <MudTd><MudHighlighter Text="@context.NomeUsuario" HighlightedText="@_termoBusca" /></MudTd>
     <MudTd>@context.Papel</MudTd>
     <MudTd>@(context.Ativo ? "Ativo" : "Desativado")</MudTd>
     <MudTd>
@@ -41,6 +50,9 @@
                      OnClick="@(() => RemoverAsync(context))" />
     </MudTd>
   </RowTemplate>
+  <PagerContent>
+    <MudTablePager PageSizeOptions="new[] { 10, 25, 50, 100 }" />
+  </PagerContent>
 </MudTable>
 
 
@@ -48,6 +60,18 @@
     private bool _carregando = true;
     private List<UsuarioDto> _usuarios = [];
     private int _idUsuarioLogado;
+    private string _termoBusca = string.Empty;
+
+    private bool FiltrarUsuario(UsuarioDto usuario)
+    {
+        if (string.IsNullOrWhiteSpace(_termoBusca))
+        {
+            return true;
+        }
+
+        return usuario.NomeCompleto.Contains(_termoBusca, StringComparison.OrdinalIgnoreCase)
+            || usuario.NomeUsuario.Contains(_termoBusca, StringComparison.OrdinalIgnoreCase);
+    }
 
     private async Task CarregarUsuariosAsync()
     {

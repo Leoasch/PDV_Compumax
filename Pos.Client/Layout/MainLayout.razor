@@ -30,14 +30,6 @@
     protected override void OnInitialized()
     {
         ServicoAtalhos.DefinirTecla("AlternarMenu", "Escape");
-        ServicoAtalhos.DefinirTecla("IrParaInicio", "F2");
-        ServicoAtalhos.DefinirTecla("IrParaCounter", "F3");
-        ServicoAtalhos.DefinirTecla("MostrarTeclasReservadas", "F6");
-
-        _atalhos.Add(ServicoAtalhos.Registrar("MostrarTeclasReservadas", async () =>
-        {
-            await JSRuntime.InvokeVoidAsync("posAtalhos.mostrarTeclasReservadas");
-        }));
 
         _atalhos.Add(ServicoAtalhos.Registrar("AlternarMenu", () =>
         {
@@ -46,17 +38,6 @@
             return Task.CompletedTask;
         }));
 
-        _atalhos.Add(ServicoAtalhos.Registrar("IrParaInicio", () =>
-        {
-            NavigationManager.NavigateTo("/");
-            return Task.CompletedTask;
-        }));
-
-        _atalhos.Add(ServicoAtalhos.Registrar("IrParaCounter", () =>
-        {
-            NavigationManager.NavigateTo("/counter");
-            return Task.CompletedTask;
-        }));
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

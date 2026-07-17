@@ -1,23 +1,84 @@
 @page "/dashboard/vendas"
 @attribute [Authorize]
-@inject ServicoAtalhos ServicoAtalhos
-@implements IDisposable
+@inject ServicoVendas ServicoVendas
+@inject IDialogService DialogService
 
-<PageTitle>Dashboard vendas</PageTitle>
+<PageTitle>Vendas</PageTitle>
 
 <h1>Vendas</h1>
 
-@code {
-  private IDisposable? _atalhoIncrementar;
+<MudTextField T="string"
+              @bind-Value="_termoBusca"
+              Immediate="true"
+              Placeholder="Buscar por usuário ou forma de pagamento..."
+              Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search"
+              Class="mb-4" />
 
-  protected override void OnInitialized()
+<MudTable Items="@_vendas" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<VendaResumoDto, bool>(FiltrarVenda)"
+          Height="calc(100vh - 290px)" FixedHeader="true">
+  <HeaderContent>
+    <MudTh>Nº</MudTh>
+    <MudTh>Data/Hora</MudTh>
+    <MudTh>Usuário</MudTh>
+    <MudTh>Forma de pagamento</MudTh>
+    <MudTh>Total</MudTh>
+    <MudTh>Status</MudTh>
+    <MudTh></MudTh>
+  </HeaderContent>
+  <RowTemplate>
+    <MudTd>@context.Id</MudTd>
+    <MudTd>@context.DataHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+    <MudTd><MudHighlighter Text="@context.UsuarioNomeCompleto" HighlightedText="@_termoBusca" /></MudTd>
+    <MudTd><MudHighlighter Text="@context.FormaPagamento.ObterLabel()" HighlightedText="@_termoBusca" /></MudTd>
+    <MudTd>@context.Total.ToString("C2")</MudTd>
+    <MudTd>
+      <MudChip T="string" Color="@(context.Cancelada ? Color.Error : Color.Success)" Size="Size.Small">
+        @(context.Cancelada ? "Cancelada" : "Concluída")
+      </MudChip>
+    </MudTd>
+    <MudTd>
+      <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" OnClick="@(() => AbrirDetalhesAsync(context.Id))" />
+    </MudTd>
+  </RowTemplate>
+  <PagerContent>
+    <MudTablePager PageSizeOptions="new[] { 10, 25, 50, 100 }" />
+  </PagerContent>
+</MudTable>
+
+@code {
+  private bool _carregando = true;
+  private List<VendaResumoDto> _vendas = [];
+  private string _termoBusca = string.Empty;
+
+  private bool FiltrarVenda(VendaResumoDto venda)
   {
-    
+    if (string.IsNullOrWhiteSpace(_termoBusca))
+    {
+      return true;
+    }
+
+    return venda.UsuarioNomeCompleto.Contains(_termoBusca, StringComparison.OrdinalIgnoreCase)
+        || venda.FormaPagamento.ObterLabel().Contains(_termoBusca, StringComparison.OrdinalIgnoreCase);
   }
 
-
-  public void Dispose()
+  protected override async Task OnInitializedAsync()
   {
-    _atalhoIncrementar?.Dispose();
+    _carregando = true;
+    try
+    {
+      _vendas = await ServicoVendas.ListarAsync();
+    }
+    finally
+    {
+      _carregando = false;
+    }
+  }
+
+  private async Task AbrirDetalhesAsync(int vendaId)
+  {
+    var parametros = new DialogParameters { { nameof(ModalDetalhesVenda.VendaId), vendaId } };
+    var opcoes = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+    await DialogService.ShowAsync<ModalDetalhesVenda>(null, parametros, opcoes);
   }
 }

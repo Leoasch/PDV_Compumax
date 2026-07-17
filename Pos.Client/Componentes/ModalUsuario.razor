@@ -1,4 +1,6 @@
 @inject ServicoUsuario ServicoUsuario
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <MudDialog>
     <TitleContent>@(UsuarioId is null ? "Novo usuário" : "Editar usuário")</TitleContent>
@@ -32,7 +34,7 @@
                               Validation="@(new Func<string, string?>(ValidarSenha))"
                               Class="mt-4" />
 
-                <MudSelect T="PapelUsuario" @bind-Value="_modelo.Papel" Label="Papel" Class="mt-4">
+                <MudSelect T="PapelUsuario" @ref="_selectPapel" @bind-Value="_modelo.Papel" Label="Papel" Class="mt-4" OnKeyDown="OnSelectKeyDown">
                     <MudSelectItem T="PapelUsuario" Value="PapelUsuario.Admin">Admin</MudSelectItem>
                     <MudSelectItem T="PapelUsuario" Value="PapelUsuario.Caixa">Caixa</MudSelectItem>
                 </MudSelect>
@@ -66,6 +68,8 @@
     [Parameter] public int? UsuarioId { get; set; }
 
     private MudForm _form = default!;
+    private MudSelect<PapelUsuario> _selectPapel = default!;
+    private DotNetObjectReference<ModalUsuario>? _referenciaJs;
     private readonly ModeloUsuario _modelo = new();
     private bool _carregando;
     private bool _salvando;
@@ -145,6 +149,25 @@
     }
 
     private void Cancelar() => MudDialog.Cancel();
+
+    private async Task OnSelectKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter")
+        {
+            return;
+        }
+
+        _referenciaJs ??= DotNetObjectReference.Create(this);
+        await JSRuntime.InvokeVoidAsync("posUtil.agendarChamada", _referenciaJs, nameof(FecharSelectPapel), 100);
+    }
+
+    [JSInvokable]
+    public async Task FecharSelectPapel()
+    {
+        await _selectPapel.CloseMenu(true);
+    }
+
+    public void Dispose() => _referenciaJs?.Dispose();
 
     private class ModeloUsuario
     {

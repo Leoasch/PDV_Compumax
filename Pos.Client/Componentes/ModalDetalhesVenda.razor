@@ -1,0 +1,78 @@
+@inject ServicoVendas ServicoVendas
+
+<MudDialog>
+    <TitleContent>Venda #@VendaId</TitleContent>
+    <DialogContent>
+        @if (_carregando)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_venda is null)
+        {
+            <MudAlert Severity="Severity.Error">Não foi possível carregar os dados da venda.</MudAlert>
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Data/Hora</MudText>
+                    <MudText>@_venda.DataHora.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Usuário</MudText>
+                    <MudText>@_venda.UsuarioNomeCompleto</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Forma de pagamento</MudText>
+                    <MudText>@_venda.FormaPagamento.ObterLabel()</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Status</MudText>
+                    <div>
+                        <MudChip T="string" Color="@(_venda.Cancelada ? Color.Error : Color.Success)" Size="Size.Small">
+                            @(_venda.Cancelada ? "Cancelada" : "Concluída")
+                        </MudChip>
+                    </div>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable Items="@_venda.Itens" Hover="true" Dense="true" Class="mt-4" Height="30vh" FixedHeader="true">
+                <HeaderContent>
+                    <MudTh>Código</MudTh>
+                    <MudTh>Descrição</MudTh>
+                    <MudTh>Qtd.</MudTh>
+                    <MudTh>Preço unitário</MudTh>
+                    <MudTh>Subtotal</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ProdutoCodigo</MudTd>
+                    <MudTd>@context.ProdutoDescricao</MudTd>
+                    <MudTd>@context.Quantidade</MudTd>
+                    <MudTd>@context.PrecoUnitario.ToString("C2")</MudTd>
+                    <MudTd>@context.Subtotal.ToString("C2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudText Typo="Typo.h6" Class="mt-4" Align="Align.Right">Total: @_venda.Total.ToString("C2")</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Fechar">Fechar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int VendaId { get; set; }
+
+    private bool _carregando = true;
+    private VendaDto? _venda;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _venda = await ServicoVendas.ObterPorIdAsync(VendaId);
+        _carregando = false;
+    }
+
+    private void Fechar() => MudDialog.Close();
+}

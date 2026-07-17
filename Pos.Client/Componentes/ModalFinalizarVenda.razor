@@ -1,0 +1,104 @@
+@inject ServicoAtalhos ServicoAtalhos
+@implements IDisposable
+
+<MudDialog>
+    <TitleContent>Finalizar venda</TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.subtitle2">Total a pagar</MudText>
+        <MudText Typo="Typo.h4" Class="mb-4">@Subtotal.ToString("C2")</MudText>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Forma de pagamento</MudText>
+        <div class="opcoes-forma-pagamento mb-4">
+            <MudRadioGroup T="FormaPagamento" @bind-Value="_formaPagamento">
+                @foreach (var opcao in _opcoesFormaPagamento)
+                {
+                    <MudRadio T="FormaPagamento" Value="@opcao.Forma" Color="Color.Primary" Class="opcao-forma-pagamento">
+                        <div class="d-flex justify-space-between align-center opcao-forma-pagamento-conteudo">
+                            <span>@opcao.Forma.ObterLabel()</span>
+                            <Atalho Tecla="@opcao.Tecla" />
+                        </div>
+                    </MudRadio>
+                }
+            </MudRadioGroup>
+        </div>
+
+        @if (_formaPagamento == FormaPagamento.Dinheiro)
+        {
+            <MudNumericField T="decimal" @bind-Value="_valorRecebido" Label="Valor recebido" Min="0" Format="F2" Class="mb-2" />
+            <MudText Typo="Typo.subtitle2">Troco: @Troco.ToString("C2")</MudText>
+
+            @if (_valorRecebido < Subtotal)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">Valor recebido é menor que o total.</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!PodeConfirmar)" OnClick="Confirmar">Confirmar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public decimal Subtotal { get; set; }
+
+    private readonly List<IDisposable> _atalhos = [];
+
+    private readonly List<(FormaPagamento Forma, string Tecla)> _opcoesFormaPagamento =
+    [
+        (FormaPagamento.Dinheiro, "F1"),
+        (FormaPagamento.CartaoCredito, "F2"),
+        (FormaPagamento.CartaoDebito, "F3"),
+        (FormaPagamento.Pix, "F4"),
+    ];
+
+    private FormaPagamento _formaPagamento = FormaPagamento.Dinheiro;
+    private decimal _valorRecebido;
+    private bool _valorInicializado;
+
+    private decimal Troco => _formaPagamento == FormaPagamento.Dinheiro ? Math.Max(0, _valorRecebido - Subtotal) : 0;
+    private bool PodeConfirmar => _formaPagamento != FormaPagamento.Dinheiro || _valorRecebido >= Subtotal;
+
+    protected override void OnInitialized()
+    {
+        foreach (var (forma, tecla) in _opcoesFormaPagamento)
+        {
+            var acaoId = $"ModalFinalizarVenda.{forma}";
+            ServicoAtalhos.DefinirTecla(acaoId, tecla);
+            _atalhos.Add(ServicoAtalhos.Registrar(acaoId, () =>
+            {
+                _formaPagamento = forma;
+                StateHasChanged();
+                return Task.CompletedTask;
+            }));
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!_valorInicializado)
+        {
+            _valorRecebido = Subtotal;
+            _valorInicializado = true;
+        }
+    }
+
+    private void Confirmar()
+    {
+        var valorRecebido = _formaPagamento == FormaPagamento.Dinheiro ? _valorRecebido : Subtotal;
+        MudDialog.Close(DialogResult.Ok(new ResultadoFinalizacaoVenda(_formaPagamento, valorRecebido)));
+    }
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    public void Dispose()
+    {
+        foreach (var atalho in _atalhos)
+        {
+            atalho.Dispose();
+        }
+    }
+
+    public record ResultadoFinalizacaoVenda(FormaPagamento FormaPagamento, decimal ValorRecebido);
+}

@@ -30,5 +30,7 @@ builder.Services.AddScoped<ServicoAutenticacao>();
 builder.Services.AddScoped<ServicoProdutos>();
 builder.Services.AddScoped<ServicoAtalhos>();
 builder.Services.AddScoped<ServicoUsuario>();
+builder.Services.AddScoped<ServicoVendas>();
+builder.Services.AddScoped<ArmazenamentoCarrinho>();
 
 await builder.Build().RunAsync();

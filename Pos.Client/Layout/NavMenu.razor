@@ -9,9 +9,7 @@
                 @context.User.FindFirst(ClaimsPersonalizadas.NomeCompleto)?.Value
             </MudText>
             <MudDivider Class="mb-2" Style="flex-grow:0;" />
-            <div class="px-4 mb-2">
-                <Atalho Tecla="←→" Descricao="Trocar de página" />
-            </div>
+            
         </Authorized>
     </AuthorizeView>
 
@@ -53,7 +51,12 @@
         <Authorized>
             <div style="margin-top:auto;">
                 <MudDivider Class="mb-2" />
-                <MudNavLink OnClick="SairAsync" Icon="@Icons.Material.Filled.Logout">Sair</MudNavLink>
+                <MudNavLink OnClick="SairAsync" Icon="@Icons.Material.Filled.Logout">
+                    <div class="d-flex align-center justify-space-between">
+                        Sair
+                        <Atalho Tecla="Ctrl+Shift+L" />
+                    </div>
+                </MudNavLink>
             </div>
         </Authorized>
     </AuthorizeView>

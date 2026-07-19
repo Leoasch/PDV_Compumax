@@ -3,6 +3,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider ProvedorEstadoAutenticacao
+@inject ServicoAutenticacao ServicoAutenticacao
 @implements IDisposable
 
 <MudLayout>
@@ -35,6 +36,7 @@
         ServicoAtalhos.DefinirTecla("NavegarVendas", "F7");
         ServicoAtalhos.DefinirTecla("NavegarUsuarios", "F8");
         ServicoAtalhos.DefinirTecla("NavegarProdutos", "F9");
+        ServicoAtalhos.DefinirTecla("Sair", "Ctrl+Shift+L");
 
         _atalhos.Add(ServicoAtalhos.Registrar("AlternarMenu", () =>
         {
@@ -47,6 +49,7 @@
         _atalhos.Add(ServicoAtalhos.Registrar("NavegarVendas", () => NavegarAsync("/dashboard/vendas")));
         _atalhos.Add(ServicoAtalhos.Registrar("NavegarUsuarios", () => NavegarSeAdminAsync("/dashboard/users")));
         _atalhos.Add(ServicoAtalhos.Registrar("NavegarProdutos", () => NavegarSeAdminAsync("/dashboard/produtos")));
+        _atalhos.Add(ServicoAtalhos.Registrar("Sair", SairAsync));
 
         var estadoAutenticacao = await ProvedorEstadoAutenticacao.GetAuthenticationStateAsync();
         _ehAdmin = estadoAutenticacao.User.IsInRole("Admin");
@@ -65,6 +68,12 @@
             NavigationManager.NavigateTo(url);
         }
         return Task.CompletedTask;
+    }
+
+    private async Task SairAsync()
+    {
+        await ServicoAutenticacao.SairAsync();
+        NavigationManager.NavigateTo("/login");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

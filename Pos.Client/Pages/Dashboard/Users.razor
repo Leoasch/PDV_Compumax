@@ -22,6 +22,7 @@
   <Atalho Tecla="F1" Descricao="Adicionar" />
   <Atalho Tecla="F5" Descricao="Atualizar" />
   <Atalho Tecla="↑↓" Descricao="Navegar" />
+  <Atalho Tecla="←→" Descricao="Mudar página" />
   <Atalho Tecla="Enter" Descricao="Editar usuário" />
   <Atalho Tecla="Delete" Descricao="Remover usuário" />
 </MudStack>
@@ -118,6 +119,18 @@
         return Task.CompletedTask;
     }
 
+    private Task NavegarPaginaAnteriorAsync()
+    {
+        NavegarParaPagina(_tabela.CurrentPage - 1);
+        return Task.CompletedTask;
+    }
+
+    private Task NavegarProximaPaginaAsync()
+    {
+        NavegarParaPagina(_tabela.CurrentPage + 1);
+        return Task.CompletedTask;
+    }
+
     private async Task AbrirSelecionadoAsync()
     {
         if (_usuarioSelecionado is null)
@@ -126,6 +139,18 @@
         }
 
         await AbrirModalAsync(_usuarioSelecionado.Id);
+    }
+
+    private void NavegarParaPagina(int pagina)
+    {
+        var totalPaginas = (int)Math.Ceiling((double)_tabela.FilteredItems.Count() / _tabela.RowsPerPage);
+        if (pagina < 0 || pagina >= totalPaginas)
+        {
+            return;
+        }
+
+        _tabela.NavigateTo(pagina);
+        StateHasChanged();
     }
 
     private async Task RemoverSelecionadoAsync()
@@ -234,6 +259,8 @@
         ServicoAtalhos.DefinirTecla("UsuariosAtualizar", "F5");
         ServicoAtalhos.DefinirTecla("UsuariosNavegarCima", "ArrowUp");
         ServicoAtalhos.DefinirTecla("UsuariosNavegarBaixo", "ArrowDown");
+        ServicoAtalhos.DefinirTecla("UsuariosPaginaAnterior", "ArrowLeft");
+        ServicoAtalhos.DefinirTecla("UsuariosProximaPagina", "ArrowRight");
         ServicoAtalhos.DefinirTecla("UsuariosAbrirSelecionado", "Enter");
         ServicoAtalhos.DefinirTecla("UsuariosRemoverSelecionado", "Delete");
 
@@ -255,6 +282,8 @@
     {
         _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosNavegarCima", NavegarCimaAsync));
         _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosNavegarBaixo", NavegarBaixoAsync));
+        _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosPaginaAnterior", NavegarPaginaAnteriorAsync));
+        _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosProximaPagina", NavegarProximaPaginaAsync));
         _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosAbrirSelecionado", AbrirSelecionadoAsync));
         _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosRemoverSelecionado", RemoverSelecionadoAsync));
     }

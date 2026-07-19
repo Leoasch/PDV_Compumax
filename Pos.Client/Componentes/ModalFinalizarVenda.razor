@@ -9,7 +9,7 @@
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Forma de pagamento</MudText>
         <div class="opcoes-forma-pagamento mb-4">
-            <MudRadioGroup T="FormaPagamento" @bind-Value="_formaPagamento">
+            <MudRadioGroup T="FormaPagamento" @bind-Value="_formaPagamento" @bind-Value:after="AtualizarAtalhoValorRecebido">
                 @foreach (var opcao in _opcoesFormaPagamento)
                 {
                     <MudRadio T="FormaPagamento" Value="@opcao.Forma" Color="Color.Primary" Class="opcao-forma-pagamento">
@@ -24,7 +24,8 @@
 
         @if (_formaPagamento == FormaPagamento.Dinheiro)
         {
-            <MudNumericField T="decimal" @bind-Value="_valorRecebido" Label="Valor recebido" Min="0" Format="F2" Class="mb-2" />
+            <MudNumericField T="decimal" @ref="_campoValorRecebido" @bind-Value="_valorRecebido" Label="Valor recebido" Min="0" Format="F2" Class="mb-2" />
+            <Atalho Tecla="F5" Descricao="Informar valor recebido" />
             <MudText Typo="Typo.subtitle2">Troco: @Troco.ToString("C2")</MudText>
 
             @if (_valorRecebido < Subtotal)
@@ -35,7 +36,9 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancelar">Cancelar</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!PodeConfirmar)" OnClick="Confirmar">Confirmar</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Check" Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!PodeConfirmar)" OnClick="Confirmar">
+            Concluir venda <Atalho Tecla="Enter" />
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -44,6 +47,8 @@
     [Parameter] public decimal Subtotal { get; set; }
 
     private readonly List<IDisposable> _atalhos = [];
+    private IDisposable? _atalhoFocarValorRecebido;
+    private MudNumericField<decimal> _campoValorRecebido = default!;
 
     private readonly List<(FormaPagamento Forma, string Tecla)> _opcoesFormaPagamento =
     [
@@ -56,12 +61,17 @@
     private FormaPagamento _formaPagamento = FormaPagamento.Dinheiro;
     private decimal _valorRecebido;
     private bool _valorInicializado;
+    private bool _deveFocarValorRecebido;
 
     private decimal Troco => _formaPagamento == FormaPagamento.Dinheiro ? Math.Max(0, _valorRecebido - Subtotal) : 0;
     private bool PodeConfirmar => _formaPagamento != FormaPagamento.Dinheiro || _valorRecebido >= Subtotal;
 
     protected override void OnInitialized()
     {
+        ServicoAtalhos.DefinirTecla("ModalFinalizarVenda.FocarValorRecebido", "F5");
+        ServicoAtalhos.DefinirTecla("ModalFinalizarVenda.Concluir", "Enter");
+        _atalhos.Add(ServicoAtalhos.Registrar("ModalFinalizarVenda.Concluir", ConfirmarViaAtalhoAsync));
+
         foreach (var (forma, tecla) in _opcoesFormaPagamento)
         {
             var acaoId = $"ModalFinalizarVenda.{forma}";
@@ -69,10 +79,13 @@
             _atalhos.Add(ServicoAtalhos.Registrar(acaoId, () =>
             {
                 _formaPagamento = forma;
+                AtualizarAtalhoValorRecebido();
                 StateHasChanged();
                 return Task.CompletedTask;
             }));
         }
+
+        AtualizarAtalhoValorRecebido();
     }
 
     protected override void OnParametersSet()
@@ -86,14 +99,59 @@
 
     private void Confirmar()
     {
+        if (!PodeConfirmar)
+        {
+            return;
+        }
+
         var valorRecebido = _formaPagamento == FormaPagamento.Dinheiro ? _valorRecebido : Subtotal;
         MudDialog.Close(DialogResult.Ok(new ResultadoFinalizacaoVenda(_formaPagamento, valorRecebido)));
     }
 
+    private Task ConfirmarViaAtalhoAsync()
+    {
+        Confirmar();
+        return Task.CompletedTask;
+    }
+
     private void Cancelar() => MudDialog.Cancel();
+
+    private void AtualizarAtalhoValorRecebido()
+    {
+        if (_formaPagamento == FormaPagamento.Dinheiro)
+        {
+            _atalhoFocarValorRecebido ??= ServicoAtalhos.Registrar(
+                "ModalFinalizarVenda.FocarValorRecebido",
+                FocarValorRecebidoAsync);
+            return;
+        }
+
+        _atalhoFocarValorRecebido?.Dispose();
+        _atalhoFocarValorRecebido = null;
+    }
+
+    private Task FocarValorRecebidoAsync()
+    {
+        _deveFocarValorRecebido = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_deveFocarValorRecebido || _formaPagamento != FormaPagamento.Dinheiro)
+        {
+            return;
+        }
+
+        _deveFocarValorRecebido = false;
+        await _campoValorRecebido.FocusAsync();
+    }
 
     public void Dispose()
     {
+        _atalhoFocarValorRecebido?.Dispose();
+
         foreach (var atalho in _atalhos)
         {
             atalho.Dispose();

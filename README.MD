@@ -1,5 +1,9 @@
 
 # Iniciar o projeto
+## Dependencias
+``` bash
+dotnet restore
+```
 ## Backend
 ``` bash
 dotnet run --project Pos.Api

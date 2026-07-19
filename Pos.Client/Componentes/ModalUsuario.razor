@@ -1,4 +1,5 @@
 @inject ServicoUsuario ServicoUsuario
+@inject ServicoAtalhos ServicoAtalhos
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -58,7 +59,8 @@
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
             }
-            Salvar
+            <Atalho Tecla="F2" Descricao="Salvar" />
+
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -71,12 +73,16 @@
     private MudSelect<PapelUsuario> _selectPapel = default!;
     private DotNetObjectReference<ModalUsuario>? _referenciaJs;
     private readonly ModeloUsuario _modelo = new();
+    private readonly List<IDisposable> _atalhos = [];
     private bool _carregando;
     private bool _salvando;
     private string? _erro;
 
     protected override async Task OnInitializedAsync()
     {
+        ServicoAtalhos.DefinirTecla("ModalUsuario.Salvar", "F2");
+        _atalhos.Add(ServicoAtalhos.Registrar("ModalUsuario.Salvar", SalvarViaAtalhoAsync));
+
         if (UsuarioId is null)
         {
             return;
@@ -110,8 +116,19 @@
         return senha.Length >= 6 ? null : "A senha precisa ter ao menos 6 caracteres";
     }
 
+    private async Task SalvarViaAtalhoAsync()
+    {
+        await SalvarAsync();
+        StateHasChanged();
+    }
+
     private async Task SalvarAsync()
     {
+        if (_carregando || _salvando)
+        {
+            return;
+        }
+
         await _form.ValidateAsync();
         if (!_form.IsValid)
         {
@@ -167,7 +184,14 @@
         await _selectPapel.CloseMenu(true);
     }
 
-    public void Dispose() => _referenciaJs?.Dispose();
+    public void Dispose()
+    {
+        _referenciaJs?.Dispose();
+        foreach (var atalho in _atalhos)
+        {
+            atalho.Dispose();
+        }
+    }
 
     private class ModeloUsuario
     {

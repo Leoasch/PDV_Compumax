@@ -1,8 +1,8 @@
-﻿@using Pos.Client.Componentes
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @inject ServicoAtalhos ServicoAtalhos
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider ProvedorEstadoAutenticacao
 @implements IDisposable
 
 <MudLayout>
@@ -26,10 +26,15 @@
 @code {
     private bool _menuAberto = true;
     private readonly List<IDisposable> _atalhos = [];
+    private bool _ehAdmin;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         ServicoAtalhos.DefinirTecla("AlternarMenu", "F10");
+        ServicoAtalhos.DefinirTecla("NavegarCaixa", "F6");
+        ServicoAtalhos.DefinirTecla("NavegarVendas", "F7");
+        ServicoAtalhos.DefinirTecla("NavegarUsuarios", "F8");
+        ServicoAtalhos.DefinirTecla("NavegarProdutos", "F9");
 
         _atalhos.Add(ServicoAtalhos.Registrar("AlternarMenu", () =>
         {
@@ -38,6 +43,28 @@
             return Task.CompletedTask;
         }));
 
+        _atalhos.Add(ServicoAtalhos.Registrar("NavegarCaixa", () => NavegarAsync("/")));
+        _atalhos.Add(ServicoAtalhos.Registrar("NavegarVendas", () => NavegarAsync("/dashboard/vendas")));
+        _atalhos.Add(ServicoAtalhos.Registrar("NavegarUsuarios", () => NavegarSeAdminAsync("/dashboard/users")));
+        _atalhos.Add(ServicoAtalhos.Registrar("NavegarProdutos", () => NavegarSeAdminAsync("/dashboard/produtos")));
+
+        var estadoAutenticacao = await ProvedorEstadoAutenticacao.GetAuthenticationStateAsync();
+        _ehAdmin = estadoAutenticacao.User.IsInRole("Admin");
+    }
+
+    private Task NavegarAsync(string url)
+    {
+        NavigationManager.NavigateTo(url);
+        return Task.CompletedTask;
+    }
+
+    private Task NavegarSeAdminAsync(string url)
+    {
+        if (_ehAdmin)
+        {
+            NavigationManager.NavigateTo(url);
+        }
+        return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

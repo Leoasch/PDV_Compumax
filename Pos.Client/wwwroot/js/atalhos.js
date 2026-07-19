@@ -3,7 +3,7 @@ window.posAtalhos = {
 
     iniciar: function (dotNetRef) {
         document.addEventListener('keydown', function (e) {
-            if (ehCaractereDigitavel(e) && elementoAtivoEhEditavel()) {
+            if ((ehCaractereDigitavel(e) || ehTeclaDeEdicaoDeTexto(e)) && elementoAtivoEhEditavel()) {
                 return;
             }
 
@@ -38,6 +38,13 @@ function montarChave(e) {
 
 function ehCaractereDigitavel(e) {
     return e.key.length === 1 && !e.ctrlKey && !e.altKey;
+}
+
+// ArrowLeft/ArrowRight movem o cursor dentro de um campo de texto (e Shift/Ctrl+seta
+// selecionam/pulam palavras) — isso não pode ser sequestrado por atalhos globais como
+// trocar de página enquanto o usuário está editando um campo.
+function ehTeclaDeEdicaoDeTexto(e) {
+    return (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.ctrlKey && !e.altKey;
 }
 
 var TIPOS_INPUT_NAO_TEXTUAIS = ['radio', 'checkbox', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image'];

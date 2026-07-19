@@ -3,29 +3,39 @@
 @inject ServicoProdutos ServicoProdutos
 @inject ServicoAtalhos ServicoAtalhos
 @inject IDialogService DialogService
+@implements IDisposable
 
 <PageTitle>Dashboard produtos</PageTitle>
 
 <h1>Produtos</h1>
 
-<MudButton
-  Class="mb-4"
-  StartIcon="@Icons.Material.Filled.Add"
-  Color="Color.Primary"
-  Variant="Variant.Filled"
-  OnClick="@(() => AbrirModalAsync(null))">
-  Adicionar produto
-</MudButton>
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4" Class="mb-4">
+  <MudButton
+    StartIcon="@Icons.Material.Filled.Add"
+    Color="Color.Primary"
+    Variant="Variant.Filled"
+    OnClick="@(() => AbrirModalAsync(null))">
+    Adicionar produto
+  </MudButton>
+  <Atalho Tecla="F1" Descricao="Adicionar" />
+  <Atalho Tecla="F5" Descricao="Atualizar" />
+  <Atalho Tecla="↑↓" Descricao="Navegar" />
+  <Atalho Tecla="Enter" Descricao="Editar produto" />
+  <Atalho Tecla="Delete" Descricao="Remover produto" />
+</MudStack>
 
 <MudTextField T="string"
               @bind-Value="_termoBusca"
               Immediate="true"
+              AutoFocus="true"
               Placeholder="Buscar por código ou descrição..."
               Adornment="Adornment.Start"
               AdornmentIcon="@Icons.Material.Filled.Search"
               Class="mb-4" />
 
-<MudTable Items="@_produtos" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<ProdutoDto, bool>(FiltrarProduto)"
+<MudTable @ref="_tabela" Items="@_produtos" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<ProdutoDto, bool>(FiltrarProduto)"
+          @bind-SelectedItem="_produtoSelecionado"
+          RowClassFunc="@((produto, _) => produto.Id == _produtoSelecionado?.Id ? "linha-selecionada-teclado" : string.Empty)"
           Height="calc(100vh - 290px)" FixedHeader="true">
   <HeaderContent>
     <MudTh>Código</MudTh>
@@ -55,6 +65,12 @@
 </MudTable>
 
 @code {
+  private readonly List<IDisposable> _atalhos = [];
+  private readonly List<IDisposable> _atalhosNavegacao = [];
+  private IDialogReference? _dialogoAberto;
+  private MudTable<ProdutoDto> _tabela = default!;
+  private ProdutoDto? _produtoSelecionado;
+
   private bool _carregando = true;
   private List<ProdutoDto> _produtos = [];
   private string _termoBusca = string.Empty;
@@ -73,6 +89,7 @@
   private async Task CarregarProdutosAsync()
   {
     _carregando = true;
+    _produtoSelecionado = null;
     try
     {
       _produtos = await ServicoProdutos.BuscarAsync();
@@ -83,12 +100,72 @@
     }
   }
 
+  private Task NavegarCimaAsync()
+  {
+    MoverSelecao(-1);
+    StateHasChanged();
+    return Task.CompletedTask;
+  }
+
+  private Task NavegarBaixoAsync()
+  {
+    MoverSelecao(1);
+    StateHasChanged();
+    return Task.CompletedTask;
+  }
+
+  private async Task AbrirSelecionadoAsync()
+  {
+    if (_produtoSelecionado is null)
+    {
+      return;
+    }
+
+    await AbrirModalAsync(_produtoSelecionado.Id);
+  }
+
+  private async Task RemoverSelecionadoAsync()
+  {
+    if (_produtoSelecionado is null)
+    {
+      return;
+    }
+
+    await RemoverAsync(_produtoSelecionado);
+    StateHasChanged();
+  }
+
+  private void MoverSelecao(int delta)
+  {
+    var itens = _tabela.FilteredItems.ToList();
+    if (itens.Count == 0)
+    {
+      return;
+    }
+
+    var indiceAtual = _produtoSelecionado is null ? -1 : itens.FindIndex(p => p.Id == _produtoSelecionado.Id);
+    var novoIndice = Math.Clamp(indiceAtual + delta, 0, itens.Count - 1);
+    _produtoSelecionado = itens[novoIndice];
+
+    var novaPagina = novoIndice / _tabela.RowsPerPage;
+    if (novaPagina != _tabela.CurrentPage)
+    {
+      _tabela.NavigateTo(novaPagina);
+    }
+  }
+
   private async Task AbrirModalAsync(int? produtoId)
   {
     var parametros = new DialogParameters { { nameof(ModalProduto.ProdutoId), produtoId } };
     var opcoes = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+    DesregistrarNavegacao();
     var dialogo = await DialogService.ShowAsync<ModalProduto>(null, parametros, opcoes);
+    _dialogoAberto = dialogo;
+
     var resultado = await dialogo.Result;
+    _dialogoAberto = null;
+    RegistrarNavegacao();
 
     if (resultado is not null && !resultado.Canceled)
     {
@@ -96,35 +173,98 @@
     }
   }
 
-  private async Task RemoverAsync(ProdutoDto produto)
+  private async Task AbrirModalAtalhoAsync()
   {
-    var confirmado = await DialogService.ShowMessageBoxAsync(
-        "Remover produto",
-        $"Tem certeza que deseja remover o produto '{produto.Descricao}'? Essa ação não pode ser desfeita.",
-        yesText: "Remover",
-        cancelText: "Cancelar");
-
-    if (confirmado != true)
+    if (_dialogoAberto is not null)
     {
       return;
     }
 
-    var resultado = await ServicoProdutos.RemoverAsync(produto.Id);
-    if (resultado.Sucesso)
+    await AbrirModalAsync(null);
+    StateHasChanged();
+  }
+
+  private async Task AtualizarViaAtalhoAsync()
+  {
+    await CarregarProdutosAsync();
+    StateHasChanged();
+  }
+
+  private async Task RemoverAsync(ProdutoDto produto)
+  {
+    DesregistrarNavegacao();
+    try
     {
-      await CarregarProdutosAsync();
+      var confirmado = await DialogService.ShowMessageBoxAsync(
+          "Remover produto",
+          $"Tem certeza que deseja remover o produto '{produto.Descricao}'? Essa ação não pode ser desfeita.",
+          yesText: "Remover",
+          cancelText: "Cancelar");
+
+      if (confirmado != true)
+      {
+        return;
+      }
+
+      var resultado = await ServicoProdutos.RemoverAsync(produto.Id);
+      if (resultado.Sucesso)
+      {
+        await CarregarProdutosAsync();
+      }
+      else
+      {
+        await DialogService.ShowMessageBoxAsync(
+            "Erro ao remover produto",
+            resultado.Erro ?? "Não foi possível remover o produto.");
+      }
     }
-    else
+    finally
     {
-      await DialogService.ShowMessageBoxAsync(
-          "Erro ao remover produto",
-          resultado.Erro ?? "Não foi possível remover o produto.");
+      RegistrarNavegacao();
     }
   }
 
   protected override async Task OnInitializedAsync()
   {
+    ServicoAtalhos.DefinirTecla("ProdutosAdicionar", "F1");
+    ServicoAtalhos.DefinirTecla("ProdutosAtualizar", "F5");
+    ServicoAtalhos.DefinirTecla("ProdutosNavegarCima", "ArrowUp");
+    ServicoAtalhos.DefinirTecla("ProdutosNavegarBaixo", "ArrowDown");
+    ServicoAtalhos.DefinirTecla("ProdutosAbrirSelecionado", "Enter");
+    ServicoAtalhos.DefinirTecla("ProdutosRemoverSelecionado", "Delete");
+
+    _atalhos.Add(ServicoAtalhos.Registrar("ProdutosAdicionar", AbrirModalAtalhoAsync));
+    _atalhos.Add(ServicoAtalhos.Registrar("ProdutosAtualizar", AtualizarViaAtalhoAsync));
+    RegistrarNavegacao();
+
     await CarregarProdutosAsync();
   }
 
+  private void RegistrarNavegacao()
+  {
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("ProdutosNavegarCima", NavegarCimaAsync));
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("ProdutosNavegarBaixo", NavegarBaixoAsync));
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("ProdutosAbrirSelecionado", AbrirSelecionadoAsync));
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("ProdutosRemoverSelecionado", RemoverSelecionadoAsync));
+  }
+
+  private void DesregistrarNavegacao()
+  {
+    foreach (var atalho in _atalhosNavegacao)
+    {
+      atalho.Dispose();
+    }
+
+    _atalhosNavegacao.Clear();
+  }
+
+  public void Dispose()
+  {
+    foreach (var atalho in _atalhos)
+    {
+      atalho.Dispose();
+    }
+
+    DesregistrarNavegacao();
+  }
 }

@@ -2,31 +2,42 @@
 @attribute [Authorize(Roles = "Admin")]
 @using System.Security.Claims
 @inject ServicoUsuario ServicoUsuario
+@inject ServicoAtalhos ServicoAtalhos
 @inject IDialogService DialogService
 @inject AuthenticationStateProvider ProvedorEstadoAutenticacao
+@implements IDisposable
 
 <PageTitle>Dashboard usuários</PageTitle>
 
 <h1>Usuários</h1>
 
-<MudButton
-  Class="mb-4"
-  StartIcon="@Icons.Material.Filled.Add"
-  Color="Color.Primary"
-  Variant="Variant.Filled"
-  OnClick="@(() => AbrirModalAsync(null))">
-  Adicionar usuário
-</MudButton>
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4" Class="mb-4">
+  <MudButton
+    StartIcon="@Icons.Material.Filled.Add"
+    Color="Color.Primary"
+    Variant="Variant.Filled"
+    OnClick="@(() => AbrirModalAsync(null))">
+    Adicionar usuário
+  </MudButton>
+  <Atalho Tecla="F1" Descricao="Adicionar" />
+  <Atalho Tecla="F5" Descricao="Atualizar" />
+  <Atalho Tecla="↑↓" Descricao="Navegar" />
+  <Atalho Tecla="Enter" Descricao="Editar usuário" />
+  <Atalho Tecla="Delete" Descricao="Remover usuário" />
+</MudStack>
 
 <MudTextField T="string"
               @bind-Value="_termoBusca"
               Immediate="true"
+              AutoFocus="true"
               Placeholder="Buscar por nome ou usuário..."
               Adornment="Adornment.Start"
               AdornmentIcon="@Icons.Material.Filled.Search"
               Class="mb-4" />
 
-<MudTable Items="@_usuarios" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<UsuarioDto, bool>(FiltrarUsuario)"
+<MudTable @ref="_tabela" Items="@_usuarios" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<UsuarioDto, bool>(FiltrarUsuario)"
+          @bind-SelectedItem="_usuarioSelecionado"
+          RowClassFunc="@((usuario, _) => usuario.Id == _usuarioSelecionado?.Id ? "linha-selecionada-teclado" : string.Empty)"
           Height="calc(100vh - 290px)" FixedHeader="true">
   <HeaderContent>
     <MudTh>Nome</MudTh>
@@ -57,6 +68,12 @@
 
 
 @code {
+    private readonly List<IDisposable> _atalhos = [];
+    private readonly List<IDisposable> _atalhosNavegacao = [];
+    private IDialogReference? _dialogoAberto;
+    private MudTable<UsuarioDto> _tabela = default!;
+    private UsuarioDto? _usuarioSelecionado;
+
     private bool _carregando = true;
     private List<UsuarioDto> _usuarios = [];
     private int _idUsuarioLogado;
@@ -76,6 +93,7 @@
     private async Task CarregarUsuariosAsync()
     {
         _carregando = true;
+        _usuarioSelecionado = null;
         try
         {
             _usuarios = await ServicoUsuario.GetUsuarios();
@@ -86,12 +104,72 @@
         }
     }
 
+    private Task NavegarCimaAsync()
+    {
+        MoverSelecao(-1);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task NavegarBaixoAsync()
+    {
+        MoverSelecao(1);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task AbrirSelecionadoAsync()
+    {
+        if (_usuarioSelecionado is null)
+        {
+            return;
+        }
+
+        await AbrirModalAsync(_usuarioSelecionado.Id);
+    }
+
+    private async Task RemoverSelecionadoAsync()
+    {
+        if (_usuarioSelecionado is null || _usuarioSelecionado.Id == _idUsuarioLogado)
+        {
+            return;
+        }
+
+        await RemoverAsync(_usuarioSelecionado);
+        StateHasChanged();
+    }
+
+    private void MoverSelecao(int delta)
+    {
+        var itens = _tabela.FilteredItems.ToList();
+        if (itens.Count == 0)
+        {
+            return;
+        }
+
+        var indiceAtual = _usuarioSelecionado is null ? -1 : itens.FindIndex(u => u.Id == _usuarioSelecionado.Id);
+        var novoIndice = Math.Clamp(indiceAtual + delta, 0, itens.Count - 1);
+        _usuarioSelecionado = itens[novoIndice];
+
+        var novaPagina = novoIndice / _tabela.RowsPerPage;
+        if (novaPagina != _tabela.CurrentPage)
+        {
+            _tabela.NavigateTo(novaPagina);
+        }
+    }
+
     private async Task AbrirModalAsync(int? usuarioId)
     {
         var parametros = new DialogParameters { { nameof(ModalUsuario.UsuarioId), usuarioId } };
         var opcoes = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        DesregistrarNavegacao();
         var dialogo = await DialogService.ShowAsync<ModalUsuario>(null, parametros, opcoes);
+        _dialogoAberto = dialogo;
+
         var resultado = await dialogo.Result;
+        _dialogoAberto = null;
+        RegistrarNavegacao();
 
         if (resultado is not null && !resultado.Canceled)
         {
@@ -99,34 +177,70 @@
         }
     }
 
-    private async Task RemoverAsync(UsuarioDto usuario)
+    private async Task AbrirModalAtalhoAsync()
     {
-        var confirmado = await DialogService.ShowMessageBoxAsync(
-            "Remover usuário",
-            $"Tem certeza que deseja remover o usuário '{usuario.NomeCompleto}'? Essa ação não pode ser desfeita.",
-            yesText: "Remover",
-            cancelText: "Cancelar");
-
-        if (confirmado != true)
+        if (_dialogoAberto is not null)
         {
             return;
         }
 
-        var resultado = await ServicoUsuario.RemoverAsync(usuario.Id);
-        if (resultado.Sucesso)
+        await AbrirModalAsync(null);
+        StateHasChanged();
+    }
+
+    private async Task AtualizarViaAtalhoAsync()
+    {
+        await CarregarUsuariosAsync();
+        StateHasChanged();
+    }
+
+    private async Task RemoverAsync(UsuarioDto usuario)
+    {
+        DesregistrarNavegacao();
+        try
         {
-            await CarregarUsuariosAsync();
+            var confirmado = await DialogService.ShowMessageBoxAsync(
+                "Remover usuário",
+                $"Tem certeza que deseja remover o usuário '{usuario.NomeCompleto}'? Essa ação não pode ser desfeita.",
+                yesText: "Remover",
+                cancelText: "Cancelar");
+
+            if (confirmado != true)
+            {
+                return;
+            }
+
+            var resultado = await ServicoUsuario.RemoverAsync(usuario.Id);
+            if (resultado.Sucesso)
+            {
+                await CarregarUsuariosAsync();
+            }
+            else
+            {
+                await DialogService.ShowMessageBoxAsync(
+                    "Erro ao remover usuário",
+                    resultado.Erro ?? "Não foi possível remover o usuário.");
+            }
         }
-        else
+        finally
         {
-            await DialogService.ShowMessageBoxAsync(
-                "Erro ao remover usuário",
-                resultado.Erro ?? "Não foi possível remover o usuário.");
+            RegistrarNavegacao();
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        ServicoAtalhos.DefinirTecla("UsuariosAdicionar", "F1");
+        ServicoAtalhos.DefinirTecla("UsuariosAtualizar", "F5");
+        ServicoAtalhos.DefinirTecla("UsuariosNavegarCima", "ArrowUp");
+        ServicoAtalhos.DefinirTecla("UsuariosNavegarBaixo", "ArrowDown");
+        ServicoAtalhos.DefinirTecla("UsuariosAbrirSelecionado", "Enter");
+        ServicoAtalhos.DefinirTecla("UsuariosRemoverSelecionado", "Delete");
+
+        _atalhos.Add(ServicoAtalhos.Registrar("UsuariosAdicionar", AbrirModalAtalhoAsync));
+        _atalhos.Add(ServicoAtalhos.Registrar("UsuariosAtualizar", AtualizarViaAtalhoAsync));
+        RegistrarNavegacao();
+
         var estadoAutenticacao = await ProvedorEstadoAutenticacao.GetAuthenticationStateAsync();
         var idClaim = estadoAutenticacao.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (idClaim is not null && int.TryParse(idClaim, out var id))
@@ -135,5 +249,33 @@
         }
 
         await CarregarUsuariosAsync();
+    }
+
+    private void RegistrarNavegacao()
+    {
+        _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosNavegarCima", NavegarCimaAsync));
+        _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosNavegarBaixo", NavegarBaixoAsync));
+        _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosAbrirSelecionado", AbrirSelecionadoAsync));
+        _atalhosNavegacao.Add(ServicoAtalhos.Registrar("UsuariosRemoverSelecionado", RemoverSelecionadoAsync));
+    }
+
+    private void DesregistrarNavegacao()
+    {
+        foreach (var atalho in _atalhosNavegacao)
+        {
+            atalho.Dispose();
+        }
+
+        _atalhosNavegacao.Clear();
+    }
+
+    public void Dispose()
+    {
+        foreach (var atalho in _atalhos)
+        {
+            atalho.Dispose();
+        }
+
+        DesregistrarNavegacao();
     }
 }

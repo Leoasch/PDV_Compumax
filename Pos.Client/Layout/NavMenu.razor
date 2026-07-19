@@ -9,16 +9,25 @@
                 @context.User.FindFirst(ClaimsPersonalizadas.NomeCompleto)?.Value
             </MudText>
             <MudDivider Class="mb-2" Style="flex-grow:0;" />
+            <div class="px-4 mb-2">
+                <Atalho Tecla="←→" Descricao="Trocar de página" />
+            </div>
         </Authorized>
     </AuthorizeView>
 
     <AuthorizeView>
         <Authorized>
             <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PointOfSale">
-                Caixa
+                <div class="d-flex align-center justify-space-between">
+                    Caixa
+                    <Atalho Tecla="F6" />
+                </div>
             </MudNavLink>
             <MudNavLink Href="dashboard/vendas" Icon="@Icons.Material.Filled.ReceiptLong">
-                Vendas
+                <div class="d-flex align-center justify-space-between">
+                    Vendas
+                    <Atalho Tecla="F7" />
+                </div>
             </MudNavLink>
         </Authorized>
     </AuthorizeView>
@@ -26,10 +35,16 @@
     <AuthorizeView Roles="Admin">
         <Authorized>
             <MudNavLink Href="dashboard/users" Icon="@Icons.Material.Filled.ManageAccounts">
-                Usuários
+                <div class="d-flex align-center justify-space-between">
+                    Usuários
+                    <Atalho Tecla="F8" />
+                </div>
             </MudNavLink>
             <MudNavLink Href="dashboard/produtos" Icon="@Icons.Material.Filled.Inventory2">
-                Produtos
+                <div class="d-flex align-center justify-space-between">
+                    Produtos
+                    <Atalho Tecla="F9" />
+                </div>
             </MudNavLink>
         </Authorized>
     </AuthorizeView>

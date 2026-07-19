@@ -1,21 +1,34 @@
 @page "/dashboard/vendas"
 @attribute [Authorize]
 @inject ServicoVendas ServicoVendas
+@inject ServicoAtalhos ServicoAtalhos
 @inject IDialogService DialogService
+@implements IDisposable
 
 <PageTitle>Vendas</PageTitle>
 
 <h1>Vendas</h1>
 
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4" Class="mb-2">
+  <Atalho Tecla="F1" Descricao="Buscar" />
+  <Atalho Tecla="F5" Descricao="Atualizar" />
+  <Atalho Tecla="↑↓" Descricao="Navegar" />
+  <Atalho Tecla="Enter" Descricao="Abrir venda" />
+</MudStack>
+
 <MudTextField T="string"
+              @ref="_campoBusca"
               @bind-Value="_termoBusca"
               Immediate="true"
+              AutoFocus="true"
               Placeholder="Buscar por usuário ou forma de pagamento..."
               Adornment="Adornment.Start"
               AdornmentIcon="@Icons.Material.Filled.Search"
               Class="mb-4" />
 
-<MudTable Items="@_vendas" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<VendaResumoDto, bool>(FiltrarVenda)"
+<MudTable @ref="_tabela" Items="@_vendas" Hover="true" Loading="@_carregando" RowsPerPage="10" Filter="new Func<VendaResumoDto, bool>(FiltrarVenda)"
+          @bind-SelectedItem="_vendaSelecionada"
+          RowClassFunc="@((venda, _) => venda.Id == _vendaSelecionada?.Id ? "linha-selecionada-teclado" : string.Empty)"
           Height="calc(100vh - 290px)" FixedHeader="true">
   <HeaderContent>
     <MudTh>Nº</MudTh>
@@ -47,6 +60,13 @@
 </MudTable>
 
 @code {
+  private readonly List<IDisposable> _atalhos = [];
+  private readonly List<IDisposable> _atalhosNavegacao = [];
+  private MudTextField<string> _campoBusca = default!;
+  private MudTable<VendaResumoDto> _tabela = default!;
+  private IDialogReference? _dialogoDetalhes;
+  private VendaResumoDto? _vendaSelecionada;
+
   private bool _carregando = true;
   private List<VendaResumoDto> _vendas = [];
   private string _termoBusca = string.Empty;
@@ -64,7 +84,46 @@
 
   protected override async Task OnInitializedAsync()
   {
+    ServicoAtalhos.DefinirTecla("VendasBuscar", "F1");
+    ServicoAtalhos.DefinirTecla("VendasAtualizar", "F5");
+    ServicoAtalhos.DefinirTecla("VendasNavegarCima", "ArrowUp");
+    ServicoAtalhos.DefinirTecla("VendasNavegarBaixo", "ArrowDown");
+    ServicoAtalhos.DefinirTecla("VendasAbrirSelecionado", "Enter");
+
+    _atalhos.Add(ServicoAtalhos.Registrar("VendasBuscar", FocarBuscaAsync));
+    _atalhos.Add(ServicoAtalhos.Registrar("VendasAtualizar", AtualizarViaAtalhoAsync));
+    RegistrarNavegacao();
+
+    await CarregarVendasAsync();
+  }
+
+  private void RegistrarNavegacao()
+  {
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("VendasNavegarCima", NavegarCimaAsync));
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("VendasNavegarBaixo", NavegarBaixoAsync));
+    _atalhosNavegacao.Add(ServicoAtalhos.Registrar("VendasAbrirSelecionado", AbrirSelecionadoAsync));
+  }
+
+  private void DesregistrarNavegacao()
+  {
+    foreach (var atalho in _atalhosNavegacao)
+    {
+      atalho.Dispose();
+    }
+
+    _atalhosNavegacao.Clear();
+  }
+
+  private async Task AtualizarViaAtalhoAsync()
+  {
+    await CarregarVendasAsync();
+    StateHasChanged();
+  }
+
+  private async Task CarregarVendasAsync()
+  {
     _carregando = true;
+    _vendaSelecionada = null;
     try
     {
       _vendas = await ServicoVendas.ListarAsync();
@@ -75,10 +134,80 @@
     }
   }
 
+  private Task NavegarCimaAsync()
+  {
+    MoverSelecao(-1);
+    StateHasChanged();
+    return Task.CompletedTask;
+  }
+
+  private Task NavegarBaixoAsync()
+  {
+    MoverSelecao(1);
+    StateHasChanged();
+    return Task.CompletedTask;
+  }
+
+  private async Task AbrirSelecionadoAsync()
+  {
+    if (_vendaSelecionada is null)
+    {
+      return;
+    }
+
+    await AbrirDetalhesAsync(_vendaSelecionada.Id);
+  }
+
+  private void MoverSelecao(int delta)
+  {
+    var itens = _tabela.FilteredItems.ToList();
+    if (itens.Count == 0)
+    {
+      return;
+    }
+
+    var indiceAtual = _vendaSelecionada is null ? -1 : itens.FindIndex(v => v.Id == _vendaSelecionada.Id);
+    var novoIndice = Math.Clamp(indiceAtual + delta, 0, itens.Count - 1);
+    _vendaSelecionada = itens[novoIndice];
+
+    var novaPagina = novoIndice / _tabela.RowsPerPage;
+    if (novaPagina != _tabela.CurrentPage)
+    {
+      _tabela.NavigateTo(novaPagina);
+    }
+  }
+
+  private async Task FocarBuscaAsync()
+  {
+    if (_dialogoDetalhes is not null)
+    {
+      return;
+    }
+
+    await _campoBusca.FocusAsync();
+  }
+
   private async Task AbrirDetalhesAsync(int vendaId)
   {
     var parametros = new DialogParameters { { nameof(ModalDetalhesVenda.VendaId), vendaId } };
     var opcoes = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
-    await DialogService.ShowAsync<ModalDetalhesVenda>(null, parametros, opcoes);
+
+    DesregistrarNavegacao();
+    var dialogo = await DialogService.ShowAsync<ModalDetalhesVenda>(null, parametros, opcoes);
+    _dialogoDetalhes = dialogo;
+
+    await dialogo.Result;
+    _dialogoDetalhes = null;
+    RegistrarNavegacao();
+  }
+
+  public void Dispose()
+  {
+    foreach (var atalho in _atalhos)
+    {
+      atalho.Dispose();
+    }
+
+    DesregistrarNavegacao();
   }
 }

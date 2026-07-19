@@ -98,7 +98,8 @@ public class VendasController : ControllerBase
                 ProdutoCodigo = produto.Codigo,
                 ProdutoDescricao = produto.Descricao,
                 Quantidade = itemRequest.Quantidade,
-                PrecoUnitario = produto.PrecoVenda
+                PrecoUnitario = produto.PrecoVenda,
+                PrecoDesconto = itemRequest.PrecoDesconto
             });
 
             await _contextoBancoDados.Produtos
@@ -184,7 +185,7 @@ public class VendasController : ControllerBase
             venda.Cancelada,
             venda.DataCancelamento,
             venda.Itens
-                .Select(i => new ItemVendaDto(i.ProdutoId, i.ProdutoCodigo, i.ProdutoDescricao, i.Quantidade, i.PrecoUnitario, i.Subtotal))
+                .Select(i => new ItemVendaDto(i.ProdutoId, i.ProdutoCodigo, i.ProdutoDescricao, i.Quantidade, i.PrecoUnitario, i.Subtotal, i.PrecoDesconto))
                 .ToList());
     }
 }

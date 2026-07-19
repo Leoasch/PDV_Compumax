@@ -8,5 +8,12 @@ window.posUtil = {
         setTimeout(function () {
             dotNetRef.invokeMethodAsync(metodo);
         }, delayMs);
+    },
+
+    focarElemento: function (id) {
+        var elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.focus();
+        }
     }
 };

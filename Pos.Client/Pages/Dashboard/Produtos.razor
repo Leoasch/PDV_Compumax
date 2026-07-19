@@ -3,7 +3,6 @@
 @inject ServicoProdutos ServicoProdutos
 @inject ServicoAtalhos ServicoAtalhos
 @inject IDialogService DialogService
-@implements IDisposable
 
 <PageTitle>Dashboard produtos</PageTitle>
 
@@ -56,7 +55,6 @@
 </MudTable>
 
 @code {
-  private IDisposable? _atalhoIncrementar;
   private bool _carregando = true;
   private List<ProdutoDto> _produtos = [];
   private string _termoBusca = string.Empty;
@@ -129,8 +127,4 @@
     await CarregarProdutosAsync();
   }
 
-  public void Dispose()
-  {
-    _atalhoIncrementar?.Dispose();
-  }
 }

@@ -48,7 +48,17 @@
                     <MudTd>@context.ProdutoCodigo</MudTd>
                     <MudTd>@context.ProdutoDescricao</MudTd>
                     <MudTd>@context.Quantidade</MudTd>
-                    <MudTd>@context.PrecoUnitario.ToString("C2")</MudTd>
+                    <MudTd>
+                        @if (context.PrecoDesconto is not null)
+                        {
+                            <span style="text-decoration: line-through; opacity:0.6; margin-right:4px;">@context.PrecoUnitario.ToString("C2")</span>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info">@context.PrecoDesconto.Value.ToString("C2")</MudChip>
+                        }
+                        else
+                        {
+                            @context.PrecoUnitario.ToString("C2")
+                        }
+                    </MudTd>
                     <MudTd>@context.Subtotal.ToString("C2")</MudTd>
                 </RowTemplate>
             </MudTable>

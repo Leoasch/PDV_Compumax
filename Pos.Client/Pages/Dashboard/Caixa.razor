@@ -78,7 +78,17 @@
                     <MudTd>@context.ProdutoCodigo</MudTd>
                     <MudTd>@context.ProdutoDescricao</MudTd>
                     <MudTd>@context.Quantidade</MudTd>
-                    <MudTd>@context.PrecoUnitario.ToString("C2")</MudTd>
+                    <MudTd>
+                        @if (context.PrecoDesconto is not null)
+                        {
+                            <span style="text-decoration: line-through; opacity:0.6; margin-right:4px;">@context.PrecoUnitario.ToString("C2")</span>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info">@context.PrecoDesconto.Value.ToString("C2")</MudChip>
+                        }
+                        else
+                        {
+                            @context.PrecoUnitario.ToString("C2")
+                        }
+                    </MudTd>
                     <MudTd>@context.Subtotal.ToString("C2")</MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
@@ -139,6 +149,7 @@
     private ProdutoDto? _produtoAtual;
     private int _ultimaQuantidadeAdicionada;
     private IDialogReference? _dialogoAdicionarProduto;
+    private IDialogReference? _dialogoCancelarVenda;
     private decimal _subtotal;
     private decimal _totalRecebido;
     private decimal _troco;
@@ -147,31 +158,22 @@
 
     private readonly List<(string Tecla, string Descricao)> _legendaAtalhos =
     [
-        ("F4", "Adicionar produto"),
-        ("F7", "Remover item"),
-        ("F8", "Nova venda"),
-        ("F9", "Buscar venda"),
-        ("F10", "Finalizar venda"),
-        ("F11", "Cancelar venda"),
+        ("F1", "Adicionar produto"),
+        ("F2", "Remover o último item adicionado"),
+        ("F3", "Finalizar venda"),
+        ("F4", "Cancelar venda"),
+        ("F10", "Menu lateral"),
     ];
 
     protected override async Task OnInitializedAsync()
     {
-        ServicoAtalhos.DefinirTecla("PdvBuscarProduto", "F4");
-        ServicoAtalhos.DefinirTecla("PdvRemoverItem", "F7");
-        ServicoAtalhos.DefinirTecla("PdvNovaVenda", "F8");
-        ServicoAtalhos.DefinirTecla("PdvBuscarVenda", "F9");
-        ServicoAtalhos.DefinirTecla("PdvFinalizarVenda", "F10");
-        ServicoAtalhos.DefinirTecla("PdvCancelarVenda", "F11");
+        ServicoAtalhos.DefinirTecla("PdvBuscarProduto", "F1");
+        ServicoAtalhos.DefinirTecla("PdvRemoverItem", "F2");
+        ServicoAtalhos.DefinirTecla("PdvFinalizarVenda", "F3");
+        ServicoAtalhos.DefinirTecla("PdvCancelarVenda", "F4");
 
         _atalhos.Add(ServicoAtalhos.Registrar("PdvBuscarProduto", AbrirModalAdicionarProdutoAsync));
         _atalhos.Add(ServicoAtalhos.Registrar("PdvRemoverItem", RemoverUltimoItemAsync));
-        _atalhos.Add(ServicoAtalhos.Registrar("PdvNovaVenda", NovaVendaAsync));
-        _atalhos.Add(ServicoAtalhos.Registrar("PdvBuscarVenda", () =>
-        {
-            Snackbar.Add("Consulta de vendas ainda não implementada.", Severity.Info);
-            return Task.CompletedTask;
-        }));
         _atalhos.Add(ServicoAtalhos.Registrar("PdvFinalizarVenda", FinalizarVendaAsync));
         _atalhos.Add(ServicoAtalhos.Registrar("PdvCancelarVenda", CancelarVendaAtualAsync));
 
@@ -206,7 +208,7 @@
             return;
         }
 
-        AdicionarItem(dados.Produto, dados.Quantidade);
+        AdicionarItem(dados.Produto, dados.Quantidade, dados.PrecoDesconto);
         await ArmazenamentoCarrinho.SalvarAsync(_itens);
 
         _produtoAtual = dados.Produto;
@@ -215,7 +217,7 @@
         StateHasChanged();
     }
 
-    private void AdicionarItem(ProdutoDto produto, int quantidade)
+    private void AdicionarItem(ProdutoDto produto, int quantidade, decimal? precoDesconto = null)
     {
         if (_itens.Count == 0)
         {
@@ -229,22 +231,28 @@
             Snackbar.Add($"Estoque insuficiente para '{produto.Descricao}' — o estoque ficará negativo.", Severity.Warning);
         }
 
-        var existente = _itens.FirstOrDefault(i => i.ProdutoId == produto.Id);
+        var precoEfetivoNovo = precoDesconto ?? produto.PrecoVenda;
+
+        var existente = _itens.FirstOrDefault(i =>
+            i.ProdutoId == produto.Id &&
+            (i.PrecoDesconto ?? i.PrecoUnitario) == precoEfetivoNovo);
+
         if (existente is not null)
         {
             var novaQuantidade = existente.Quantidade + quantidade;
             var index = _itens.IndexOf(existente);
-            _itens[index] = existente with { Quantidade = novaQuantidade, Subtotal = novaQuantidade * existente.PrecoUnitario };
+            _itens[index] = existente with { Quantidade = novaQuantidade, Subtotal = novaQuantidade * precoEfetivoNovo };
         }
         else
         {
-            _itens.Add(new ItemVendaDto(produto.Id, produto.Codigo, produto.Descricao, quantidade, produto.PrecoVenda, quantidade * produto.PrecoVenda));
+            _itens.Add(new ItemVendaDto(produto.Id, produto.Codigo, produto.Descricao, quantidade, produto.PrecoVenda, quantidade * precoEfetivoNovo, precoDesconto));
         }
 
         AtualizarSubtotal();
     }
 
-    private int QuantidadeJaNoCarrinho(int produtoId) => _itens.FirstOrDefault(i => i.ProdutoId == produtoId)?.Quantidade ?? 0;
+    private int QuantidadeJaNoCarrinho(int produtoId) =>
+        _itens.Where(i => i.ProdutoId == produtoId).Sum(i => i.Quantidade);
 
     private void AtualizarSubtotal() => _subtotal = _itens.Sum(i => i.Subtotal);
 
@@ -262,28 +270,34 @@
         StateHasChanged();
     }
 
-    private async Task NovaVendaAsync()
-    {
-        await LimparCarrinhoAsync();
-        Snackbar.Add("Nova venda iniciada.", Severity.Info);
-        StateHasChanged();
-    }
-
     private async Task CancelarVendaAtualAsync()
     {
+        if (_dialogoCancelarVenda is not null)
+        {
+            _dialogoCancelarVenda.Close();
+            return;
+        }
+
         if (_itens.Count == 0)
         {
             Snackbar.Add("Não há venda em andamento para cancelar.", Severity.Info);
             return;
         }
 
-        var confirmado = await DialogService.ShowMessageBoxAsync(
-            "Cancelar venda",
-            "Deseja cancelar a venda atual? Os itens adicionados serão perdidos.",
-            yesText: "Cancelar venda",
-            cancelText: "Voltar");
+        var parametros = new DialogParameters
+        {
+            { nameof(MudMessageBox.Message), "Deseja cancelar a venda atual? Os itens adicionados serão perdidos." },
+            { nameof(MudMessageBox.YesText), "Cancelar venda" },
+            { nameof(MudMessageBox.CancelText), "Voltar" },
+        };
+        var opcoes = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialogo = await DialogService.ShowAsync<MudMessageBox>("Cancelar venda", parametros, opcoes);
+        _dialogoCancelarVenda = dialogo;
 
-        if (confirmado == true)
+        var resultado = await dialogo.Result;
+        _dialogoCancelarVenda = null;
+
+        if (resultado is not null && !resultado.Canceled && resultado.Data is true)
         {
             await LimparCarrinhoAsync();
             Snackbar.Add("Venda cancelada.", Severity.Info);
@@ -312,7 +326,7 @@
         }
 
         var request = new VendaRequest(
-            _itens.Select(i => new ItemVendaRequest(i.ProdutoId!.Value, i.Quantidade)).ToList(),
+            _itens.Select(i => new ItemVendaRequest(i.ProdutoId!.Value, i.Quantidade, i.PrecoDesconto)).ToList(),
             dados.FormaPagamento);
 
         var (sucesso, venda, erro) = await ServicoVendas.CriarAsync(request);

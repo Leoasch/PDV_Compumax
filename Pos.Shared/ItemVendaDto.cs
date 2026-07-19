@@ -6,4 +6,5 @@ public record ItemVendaDto(
     string ProdutoDescricao,
     int Quantidade,
     decimal PrecoUnitario,
-    decimal Subtotal);
+    decimal Subtotal,
+    decimal? PrecoDesconto);

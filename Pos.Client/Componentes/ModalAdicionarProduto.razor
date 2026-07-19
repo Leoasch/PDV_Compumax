@@ -1,4 +1,7 @@
 @inject ServicoProdutos ServicoProdutos
+@inject ServicoAtalhos ServicoAtalhos
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <MudDialog>
     <TitleContent>Adicionar produto</TitleContent>
@@ -41,6 +44,7 @@
         }
         else
         {
+            <div @onkeydown="OnTeclaEtapaQuantidade">
             <MudPaper Outlined="true" Class="pa-3 mb-3">
                 <MudText Typo="Typo.subtitle1">@_produtoSelecionado.Descricao</MudText>
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -53,19 +57,97 @@
                              @bind-Value="_quantidade"
                              Label="Quantidade"
                              Min="1"
-                             AutoFocus="true"
-                             OnKeyDown="@(e => { if (e.Key == "Enter") Confirmar(); })" />
+                             AutoFocus="true" />
 
-            <MudText Typo="Typo.h6" Class="mt-3">Total: @((_produtoSelecionado.PrecoVenda * _quantidade).ToString("C2"))</MudText>
+            <div class="d-flex align-center gap-2 mt-2">
+                <MudSwitch T="bool" @bind-Value="_aplicarDesconto" Color="Color.Primary">
+                    Aplicar desconto
+                </MudSwitch>
+                <Atalho Tecla="F2" />
+            </div>
 
-            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Class="mt-3" OnClick="VoltarParaBuscaAsync">Trocar produto</MudButton>
+            @if (_aplicarDesconto)
+            {
+                <MudRadioGroup T="ModoDesconto" @bind-Value="_modoDesconto" Class="mb-2">
+                    <MudRadio id="radio-modo-percentual" T="ModoDesconto" Value="ModoDesconto.Percentual">
+                        <div class="d-flex align-center gap-2">
+                            <span>Percentual</span>
+                            <Atalho Tecla="F3" />
+                        </div>
+                    </MudRadio>
+                    <MudRadio T="ModoDesconto" Value="ModoDesconto.ValorPersonalizado">
+                        <div class="d-flex align-center gap-2">
+                            <span>Valor personalizado</span>
+                            <Atalho Tecla="F4" />
+                        </div>
+                    </MudRadio>
+                </MudRadioGroup>
+
+                @if (_modoDesconto == ModoDesconto.Percentual)
+                {
+                    <div class="d-flex flex-wrap gap-2 mt-2 mb-2">
+                        @for (var indice = 0; indice < _percentuaisRapidos.Length; indice++)
+                        {
+                            var percentual = _percentuaisRapidos[indice];
+                            var tecla = (indice + 1).ToString();
+                            <MudButton Variant="@(_percentualDesconto == percentual ? Variant.Filled : Variant.Outlined)"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       OnClick="@(() => SelecionarPercentual(percentual))">
+                                <Atalho Tecla="@tecla" Descricao="@($"{percentual}%")" />
+                            </MudButton>
+                        }
+                    </div>
+
+                    <MudNumericField T="decimal?"
+                                     @bind-Value="_percentualDesconto"
+                                     Label="Percentual de desconto"
+                                     Min="0"
+                                     Max="100"
+                                     Immediate="true"
+                                     Adornment="Adornment.End"
+                                     AdornmentText="%" />
+
+                    @if (_percentualDesconto is > 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                            Preço com desconto: @PrecoEfetivo.ToString("C2")
+                        </MudText>
+                    }
+                }
+                else
+                {
+                    <MudNumericField T="decimal"
+                                     @ref="_campoPrecoPersonalizado"
+                                     @bind-Value="_precoPersonalizado"
+                                     Label="Preço personalizado"
+                                     Min="0"
+                                     Immediate="true"
+                                     Format="C2" />
+                }
+            }
+
+            <MudText Typo="Typo.h6" Class="mt-3">Total: @((PrecoEfetivo * _quantidade).ToString("C2"))</MudText>
+
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Class="mt-3" OnClick="VoltarParaBuscaAsync">
+                <div class="d-flex align-center gap-2">
+                    <span>Trocar produto</span>
+                    <Atalho Tecla="F5" />
+                </div>
+            </MudButton>
+        </div>
         }
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancelar">Cancelar</MudButton>
         @if (_produtoSelecionado is not null)
         {
-            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirmar">Adicionar</MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirmar">
+                <div class="d-flex align-center gap-2">
+                    <span>Adicionar</span>
+                    <Atalho Tecla="Enter" />
+                </div>
+            </MudButton>
         }
     </DialogActions>
 </MudDialog>
@@ -75,6 +157,7 @@
 
     private MudTextField<string> _campoBusca = default!;
     private MudNumericField<int> _campoQuantidade = default!;
+    private MudNumericField<decimal> _campoPrecoPersonalizado = default!;
 
     private string _termo = string.Empty;
     private List<ProdutoDto> _resultados = [];
@@ -84,6 +167,73 @@
 
     private ProdutoDto? _produtoSelecionado;
     private int _quantidade = 1;
+    private bool _aplicarDesconto;
+    private ModoDesconto _modoDesconto = ModoDesconto.Percentual;
+    private decimal? _percentualDesconto;
+    private decimal _precoPersonalizado;
+
+    private readonly List<IDisposable> _atalhos = [];
+    private static readonly decimal[] _percentuaisRapidos = [10m, 15m, 20m, 25m, 50m, 75m, 90m];
+
+    private decimal PrecoEfetivo => _aplicarDesconto
+        ? _modoDesconto switch
+        {
+            ModoDesconto.Percentual when _percentualDesconto is > 0 =>
+                Math.Round(_produtoSelecionado!.PrecoVenda * (1 - _percentualDesconto.Value / 100m), 2, MidpointRounding.AwayFromZero),
+            ModoDesconto.ValorPersonalizado => _precoPersonalizado,
+            _ => _produtoSelecionado!.PrecoVenda
+        }
+        : _produtoSelecionado!.PrecoVenda;
+
+    protected override void OnInitialized()
+    {
+        RegistrarAtalhos();
+    }
+
+    // Registrados pela vida inteira do modal (não só na etapa de quantidade): se uma tecla
+    // como F5 só ficasse reservada enquanto o produto está selecionado, o próprio atalho de
+    // "Trocar produto" (F5) se desregistraria ao voltar pra busca, deixando um segundo F5
+    // (ex: apertado sem querer logo em seguida) recarregar a página inteira. Os handlers abaixo
+    // por isso verificam _produtoSelecionado internamente em vez de depender do des/registro.
+    private void RegistrarAtalhos()
+    {
+        ServicoAtalhos.DefinirTecla("ModalAdicionarProduto.AlternarDesconto", "F2");
+        _atalhos.Add(ServicoAtalhos.Registrar("ModalAdicionarProduto.AlternarDesconto", AlternarAplicarDescontoAsync));
+
+        ServicoAtalhos.DefinirTecla("ModalAdicionarProduto.ModoPercentual", "F3");
+        _atalhos.Add(ServicoAtalhos.Registrar("ModalAdicionarProduto.ModoPercentual", () => SelecionarModoAsync(ModoDesconto.Percentual)));
+
+        ServicoAtalhos.DefinirTecla("ModalAdicionarProduto.ModoValorPersonalizado", "F4");
+        _atalhos.Add(ServicoAtalhos.Registrar("ModalAdicionarProduto.ModoValorPersonalizado", () => SelecionarModoAsync(ModoDesconto.ValorPersonalizado)));
+
+        ServicoAtalhos.DefinirTecla("ModalAdicionarProduto.TrocarProduto", "F5");
+        _atalhos.Add(ServicoAtalhos.Registrar("ModalAdicionarProduto.TrocarProduto", VoltarParaBuscaAsync));
+
+        for (var indice = 0; indice < _percentuaisRapidos.Length; indice++)
+        {
+            var percentual = _percentuaisRapidos[indice];
+            var acaoId = $"ModalAdicionarProduto.Percentual{indice + 1}";
+            ServicoAtalhos.DefinirTecla(acaoId, (indice + 1).ToString());
+            _atalhos.Add(ServicoAtalhos.Registrar(acaoId, () => SelecionarPercentualPorAtalhoAsync(percentual)));
+        }
+    }
+
+    private void DesregistrarAtalhos()
+    {
+        foreach (var atalho in _atalhos)
+        {
+            atalho.Dispose();
+        }
+        _atalhos.Clear();
+    }
+
+    private void OnTeclaEtapaQuantidade(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            Confirmar();
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -161,11 +311,85 @@
     {
         _produtoSelecionado = produto;
         _quantidade = 1;
+        _aplicarDesconto = false;
+        _modoDesconto = ModoDesconto.Percentual;
+        _percentualDesconto = null;
+        _precoPersonalizado = produto.PrecoVenda;
+    }
+
+    private void SelecionarPercentual(decimal percentual)
+    {
+        _percentualDesconto = _percentualDesconto == percentual ? null : percentual;
+    }
+
+    private async Task AlternarAplicarDescontoAsync()
+    {
+        if (_produtoSelecionado is null)
+        {
+            return;
+        }
+
+        _aplicarDesconto = !_aplicarDesconto;
+        StateHasChanged();
+
+        if (_aplicarDesconto)
+        {
+            await FocarModoAtualAsync();
+        }
+    }
+
+    private async Task SelecionarModoAsync(ModoDesconto modo)
+    {
+        if (_produtoSelecionado is null)
+        {
+            return;
+        }
+
+        _aplicarDesconto = true;
+        _modoDesconto = modo;
+        StateHasChanged();
+
+        await FocarModoAtualAsync();
+    }
+
+    private async Task FocarModoAtualAsync()
+    {
+        // Aguarda o re-render aplicar o novo estado (o campo/radio só existe no DOM depois disso).
+        await Task.Delay(50);
+
+        if (_modoDesconto == ModoDesconto.Percentual)
+        {
+            await JSRuntime.InvokeVoidAsync("posUtil.focarElemento", "radio-modo-percentual");
+        }
+        else
+        {
+            await _campoPrecoPersonalizado.FocusAsync();
+        }
+    }
+
+    private Task SelecionarPercentualPorAtalhoAsync(decimal percentual)
+    {
+        if (_produtoSelecionado is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _aplicarDesconto = true;
+        _modoDesconto = ModoDesconto.Percentual;
+        _percentualDesconto = percentual;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task VoltarParaBuscaAsync()
     {
         _produtoSelecionado = null;
+        StateHasChanged();
+
+        // Aguarda o re-render remontar o campo de busca (senão _campoBusca ainda aponta pro
+        // campo antigo, desmontado, e o FocusAsync falha com "invalid element") — mesmo motivo
+        // do delay em FocarModoAtualAsync.
+        await Task.Delay(50);
         await _campoBusca.FocusAsync();
     }
 
@@ -176,10 +400,23 @@
             return;
         }
 
-        MudDialog.Close(DialogResult.Ok(new ResultadoAdicaoProduto(_produtoSelecionado, _quantidade)));
+        var descontoAplicavel = _modoDesconto == ModoDesconto.ValorPersonalizado || _percentualDesconto is > 0;
+        var precoDesconto = _aplicarDesconto && descontoAplicavel ? PrecoEfetivo : (decimal?)null;
+        MudDialog.Close(DialogResult.Ok(new ResultadoAdicaoProduto(_produtoSelecionado, _quantidade, precoDesconto)));
     }
 
     private void Cancelar() => MudDialog.Cancel();
 
-    public record ResultadoAdicaoProduto(ProdutoDto Produto, int Quantidade);
+    public void Dispose()
+    {
+        DesregistrarAtalhos();
+    }
+
+    private enum ModoDesconto
+    {
+        Percentual,
+        ValorPersonalizado
+    }
+
+    public record ResultadoAdicaoProduto(ProdutoDto Produto, int Quantidade, decimal? PrecoDesconto);
 }

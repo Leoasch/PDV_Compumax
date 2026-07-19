@@ -9,5 +9,6 @@ public class ItemVenda
     public string ProdutoDescricao { get; set; } = string.Empty;
     public int Quantidade { get; set; }
     public decimal PrecoUnitario { get; set; }
-    public decimal Subtotal => Quantidade * PrecoUnitario;
+    public decimal? PrecoDesconto { get; set; }
+    public decimal Subtotal => Quantidade * (PrecoDesconto ?? PrecoUnitario);
 }

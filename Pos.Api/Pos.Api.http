@@ -56,3 +56,15 @@ Content-Type: application/json
     { "produtoId": 99999, "quantidade": 1 }
   ]
 }
+
+### Venda com preço personalizado em um item
+POST {{Pos.Api_HostAddress}}/vendas
+Authorization: Bearer {{login.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "itens": [
+    { "produtoId": 1, "quantidade": 2, "precoDesconto": 9.90 }
+  ],
+  "formaPagamento": "Dinheiro"
+}

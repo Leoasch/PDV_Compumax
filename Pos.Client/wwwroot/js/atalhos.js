@@ -3,6 +3,10 @@ window.posAtalhos = {
 
     iniciar: function (dotNetRef) {
         document.addEventListener('keydown', function (e) {
+            if (ehCaractereDigitavel(e) && elementoAtivoEhEditavel()) {
+                return;
+            }
+
             var chave = montarChave(e);
 
             if (window.posAtalhos.teclasReservadas.has(chave)) {
@@ -30,4 +34,25 @@ function montarChave(e) {
     partes.push(e.key);
 
     return partes.join('+');
+}
+
+function ehCaractereDigitavel(e) {
+    return e.key.length === 1 && !e.ctrlKey && !e.altKey;
+}
+
+var TIPOS_INPUT_NAO_TEXTUAIS = ['radio', 'checkbox', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image'];
+
+function elementoAtivoEhEditavel() {
+    var ativo = document.activeElement;
+    if (!ativo) return false;
+    if (ativo.isContentEditable) return true;
+
+    var tag = ativo.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag !== 'INPUT') return false;
+
+    // Radio/checkbox/switch (mesmo sendo <input>) não recebem caracteres digitados,
+    // então não devem bloquear os atalhos — só tipos textuais (text, number etc.) bloqueiam.
+    var tipo = (ativo.type || 'text').toLowerCase();
+    return TIPOS_INPUT_NAO_TEXTUAIS.indexOf(tipo) === -1;
 }

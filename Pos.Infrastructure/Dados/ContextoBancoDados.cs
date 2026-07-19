@@ -55,6 +55,7 @@ public sealed class ContextoBancoDados(DbContextOptions<ContextoBancoDados> opco
             item.Property(i => i.ProdutoCodigo).IsRequired();
             item.Property(i => i.ProdutoDescricao).IsRequired();
             item.Property(i => i.PrecoUnitario).HasPrecision(18, 2);
+            item.Property(i => i.PrecoDesconto).HasPrecision(18, 2);
 
             item.HasOne<Produto>()
                 .WithMany()
